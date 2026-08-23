@@ -37,8 +37,35 @@ reuse `postglider-auto`'s real implementations directly, same rule every sibling
 The hackathon entry (`postglider-auto/.dwp/plans/agentic-cinema-hackathon.md`, deadline
 2026-09-09) is this repo's first real build — Phase 1 (video capture/storage/tagging) and Phase 2
 (ClickHouse retrieval + Pictory compilation) land here, not in `postglider-auto`. See that DWP for
-the full plan, open decisions, and non-goals; this file will grow its own "Tenants" section (same
-convention as `postglider-gtm/CLAUDE.md`) as real code lands.
+the full plan, open decisions, and non-goals.
+
+**Demo client pivoted from Lenny Calisthenics to therawadvantage (Chris Kennel), 2026-08-23.**
+Lenny is out for this round (a separate, longstanding WP Recipe Maker recipe-access/subscription
+project for Chris is the actual blocker on introducing this to him — scheduled separately, not
+this repo's concern). therawadvantage is a better technical fit anyway: YouTube long-form content
+has no transcript length cap (unlike ScrapeCreators' <2min cap on IG/FB/Twitter), so the
+"knowledge-base/Q&A over a creator's body of work" use case (`what has X said about Y`, `every
+clip of X doing Y`) is much stronger here than it would have been for Lenny's Reels-heavy catalog.
+See `research/decisions.md` D-2026-08-23i.
+
+## Tenants
+
+- **`demo-corpus/ethnic-foods/`** 🟢 built and verified live, 2026-08-23. A 20-video sample from
+  `@therawadvantage` (curry/sushi/pad thai/falafel/Korean BBQ/Ethiopian — Ken's steer, "ethnic
+  foods themed"), captions pulled via `yt-dlp --write-auto-sub` (**free, no ScrapeCreators, no
+  AWS** — proves the concept before spending on either). Real parsing gotcha, now fixed: YouTube's
+  auto-caption VTT uses a rolling 2-line karaoke display, not one-line-per-cue; naive parsing
+  either 3x-duplicated the transcript or dropped ~95% of it depending on which caption format a
+  given video used. Fixed by taking each cue's last line and deduping consecutive identical
+  values — verified against known word counts across all 20 videos. Transcripts chunked into 30s
+  timestamped segments (`captions/*.json`, `segments: [{start, text}]`).
+- **`demo-corpus/search-demo.mjs`** 🟢 verified live. Minimal keyword-scored retrieval over the
+  20-video corpus's segments — proves "what has Chris said about curry/sushi" returns real,
+  timestamped, deep-linked quotes (`&t=<seconds>s`), zero infra cost. Not the production approach
+  (plain keyword match, no embeddings/semantic search) — proves the *shape* of the answer, not the
+  final retrieval quality. `node demo-corpus/search-demo.mjs "<query>"`.
+- **AWS access (see "AWS access" section above)** 🟢 provisioned, not yet used for anything beyond
+  the toolkit verification call — Phase 1's real S3/ClickHouse build is still ahead.
 
 ## Conventions
 
