@@ -135,6 +135,37 @@ See `research/decisions.md` D-2026-08-23i.
     "ugly demo," not a hardened artifact. Fine for showing Chris; not fine to expose publicly
     as-is.
 
+- **Transcript cleanup pass — built and verified live, 2026-08-24** (`scripts/clean-transcripts.mjs`).
+  Ken's own observation: auto-caption garbles his brand name and his own surname inconsistently,
+  and his recurring intro jingle ("baby I like it raw... The Raw Advantage likes it raw...")
+  pollutes the index. Confirmed real against the corpus before fixing:
+  - **8+ distinct brand-name spellings** found across just 20 videos (`rawadvantage`,
+    `raw Vantage`, `rod vantage`, `RawAdvantage`, `therawadvanish` — a third garbling variant
+    discovered mid-fix, beyond the original advantage/vantage pair) and **4 surname spellings**
+    (Kendall/Kenel/Kennle/Kennel — Kennel confirmed as the real spelling from the one clean
+    transcription). Normalized to "The Raw Advantage" / "Chris Kennel."
+  - **Jingle present in 7/20 (35%) of the sample** — garbled too inconsistently for one fixed
+    phrase regex (one video has no "let's get into it" lead-in at all, another truncates to
+    "like it ra," one is a structurally different non-auto caption file entirely — the same
+    outlier already found during the original VTT-parsing work). Fixed with cluster detection
+    (2+ "like it ra*" fragments within ~160 chars → strip the span) instead of exact-phrase
+    matching — reached 7/7 known instances.
+  - **Real bug found and fixed, not just noted**: brand normalization must run *after*
+    jingle-stripping, not before — normalizing "raw advantage" to "The Raw Advantage" mid-jingle
+    broke the jingle detector's own match on the videos where the brand name happened to appear
+    inside it. An early version had this backwards and silently under-stripped exactly those
+    videos.
+  - **Honest residue, not chased further**: one video's caption file is a structural outlier
+    (real HTML entities visible in the text) that still defeats the jingle matcher — this is
+    open-ended whack-a-mole against inconsistent auto-caption garbling, and 100% coverage isn't
+    realistic from fixed regex alone; a fuzzy/LLM-assisted pass would be the way to close the
+    remaining gap if it matters at scale. A couple of spots also show a missing space where a
+    replacement landed against an unspaced word ("myThe Raw Advantage") — cosmetic, doesn't
+    affect substring search.
+  - Reloaded into ClickHouse and verified live: `"The Raw Advantage"` now finds 16 real segments
+    (previously invisible to a canonical-name search, since each garbled spelling was a distinct
+    string); `"like it raw"` now returns 0 (fully scrubbed from the index).
+
 - **YouTuber onboarding variant + background-plate extraction — DWP scoped, real free feasibility
   test run, 2026-08-24.** See `.dwp/plans/youtuber-onboarding-variant.md` for the full plan. Built
   while Ken was away (asked to advance as far as responsibly possible; no paid API calls made).
