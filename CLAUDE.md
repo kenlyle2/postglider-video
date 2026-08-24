@@ -92,9 +92,21 @@ See `research/decisions.md` D-2026-08-23i.
   org "PostGlider," `list_databases` returned the service's real (empty) database list
   (`default`/`system`/`information_schema`). **Real constraint found: the MCP tool set is
   read-only** (`run_select_query`'s own description: "only read operations are permitted") — fine
-  for the hackathon's retrieval-side requirement, but table creation and row inserts for Phase 1
-  need a separate write path (a data-plane user/password + a direct SQL client, not this MCP
-  connection) — not yet set up.
+  for the hackathon's retrieval-side requirement, but table creation and row inserts need a
+  separate write path.
+
+  **Data-plane write credential set up and verified live, 2026-08-24.** No Management API exists
+  to create a scoped/restricted database user (only `PATCH .../services/{id}/password`, which
+  resets the built-in `default` superuser's password — confirmed by grepping the full OpenAPI spec
+  for `user`/`password`/`credential` paths). Called it with an empty body so ClickHouse generated
+  the password itself (never invented/transmitted by us); stored in `.env.local` as
+  `CLICKHOUSE_HOST`/`CLICKHOUSE_PORT`/`CLICKHOUSE_USER`/`CLICKHOUSE_PASSWORD`. **Real gotcha**:
+  ClickHouse's HTTP interface treats a GET request as read-only by protocol design — DDL/INSERT
+  need POST, not a credentials problem (`Code: 164, Cannot execute query in readonly mode... You
+  should use method POST for modifying queries`). Verified full round-trip over POST: `CREATE
+  TABLE` → `INSERT` → `SELECT` (real row returned) → `DROP TABLE`, all `200`. This is a full-access
+  superuser credential — consider running `CREATE USER` for a more narrowly-scoped user before any
+  production write path depends on it, not yet done.
 
 ## Conventions
 
