@@ -79,11 +79,22 @@ See `research/decisions.md` D-2026-08-23i.
   already-approved connections; the actual toggle lives on the service's own Connect menu).
   Confirmed live via the Management API. This is ClickHouse's own hosted Remote MCP endpoint
   (`mcp.clickhouse.cloud`, OAuth 2.0) — satisfies the hackathon's "official ClickHouse MCP server"
-  requirement without self-hosting `mcp-clickhouse`. Not yet connected to any client (Claude Code,
-  Agent Builder) — that's the next step. `.env.local` holds
+  requirement without self-hosting `mcp-clickhouse`. `.env.local` holds
   `CLICKHOUSE_ADMIN_KEY_ID`/`CLICKHOUSE_ADMIN_KEY_SECRET` — **Management API only, explicitly
   no data access** (Ken's own key naming/scoping choice, "Claude Infra 1") — a separate
-  data-plane credential is needed before this app can read/write rows via SQL or MCP.
+  data-plane credential is needed before this app can read/write rows via SQL or MCP directly (not
+  needed for the MCP connection itself, which authenticates via its own OAuth session).
+
+  **Connected and verified live, 2026-08-24**: `claude mcp add --transport http clickhouse-cloud
+  https://mcp.clickhouse.cloud/mcp`, OAuth completed via `/mcp` (required a full Claude Code
+  restart to pick up the newly-added server — `/mcp` alone only reconnects an already-known
+  server, doesn't discover a new one). Confirmed real end-to-end: `get_organizations` returned
+  org "PostGlider," `list_databases` returned the service's real (empty) database list
+  (`default`/`system`/`information_schema`). **Real constraint found: the MCP tool set is
+  read-only** (`run_select_query`'s own description: "only read operations are permitted") — fine
+  for the hackathon's retrieval-side requirement, but table creation and row inserts for Phase 1
+  need a separate write path (a data-plane user/password + a direct SQL client, not this MCP
+  connection) — not yet set up.
 
 ## Conventions
 
