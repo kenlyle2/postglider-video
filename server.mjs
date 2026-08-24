@@ -13,12 +13,17 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.argv[2]) || 8420;
+// Cloud Run injects PORT (usually 8080); local dev falls back to argv/8420.
+const PORT = Number(process.env.PORT) || Number(process.argv[2]) || 8420;
 
-const env = {};
-for (const line of readFileSync(join(__dirname, '.env.local'), 'utf-8').split('\n')) {
-    const m = line.match(/^([A-Z_]+)=(.*)$/);
-    if (m) env[m[1]] = m[2];
+// Prefer real environment variables (Cloud Run / Secret Manager) over .env.local, which only
+// exists for local dev and is never present in the deployed container.
+let env = { ...process.env };
+if (!env.CLICKHOUSE_HOST) {
+    for (const line of readFileSync(join(__dirname, '.env.local'), 'utf-8').split('\n')) {
+        const m = line.match(/^([A-Z_]+)=(.*)$/);
+        if (m) env[m[1]] = m[2];
+    }
 }
 const CH_URL = `https://${env.CLICKHOUSE_HOST}:${env.CLICKHOUSE_PORT}/`;
 const CH_AUTH = Buffer.from(`${env.CLICKHOUSE_USER}:${env.CLICKHOUSE_PASSWORD}`).toString('base64');

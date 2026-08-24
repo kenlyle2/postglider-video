@@ -131,9 +131,25 @@ See `research/decisions.md` D-2026-08-23i.
     - `"indian curry"` → 2, real deep-linked results including "Best Curry Recipe | Raw Vegan
       Authentic Indian Curry" at `&t=161s`
     - `sushi OR nori` → 101
-  - **Not yet done**: no deployment (runs locally only), no auth, no rate limiting — a real
-    "ugly demo," not a hardened artifact. Fine for showing Chris; not fine to expose publicly
-    as-is.
+  - **Deployed to Cloud Run and verified live, 2026-08-24**: `postglider-video-demo`, project
+    `postglider-prod` (same project `postglider-autonomous` runs in, deployed as its own separate
+    service — not touching production), region `us-central1`. `server.mjs` updated to read
+    `process.env.PORT` (Cloud Run's injected port, not the old hardcoded default) and prefer real
+    env vars over `.env.local` (which only exists for local dev, never ships in the container —
+    see `.gcloudignore`). `CLICKHOUSE_PASSWORD` in Secret Manager
+    (`postglider-video-clickhouse-password`), with the Cloud Run default compute service account
+    (`731600875541-compute@developer.gserviceaccount.com`) explicitly granted
+    `roles/secretmanager.secretAccessor` on it *before* deploying — per this workspace's own
+    documented Cloud Run gotcha (a secret created without that grant fails every revision
+    silently). Verified with real requests post-deploy, not just the CLI's "deployed successfully"
+    message (also a documented workspace gotcha — that message alone isn't proof traffic is
+    actually served): both channels return the same real match counts as local
+    (`"chronic disease"` → 26, `curry` → 69).
+    - **Public URLs**: `https://postglider-video-demo-731600875541.us-central1.run.app/?channel=johannasrawfoods`
+      and `.../?channel=therawadvantage`.
+    - **Still no auth or rate limiting** — anyone with the link can query it, and every query is a
+      real ClickHouse call. Acceptable for sending directly to the two prospects; not for posting
+      publicly. `min-instances=0` (scales to zero, near-zero idle cost), `max-instances=2`.
 
 - **Transcript cleanup pass — built and verified live, 2026-08-24** (`scripts/clean-transcripts.mjs`).
   Ken's own observation: auto-caption garbles his brand name and his own surname inconsistently,

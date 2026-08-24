@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env.local
+.env*.local
+.dwp/evidence
+demo-corpus/**/raw-vtt
+node_modules
