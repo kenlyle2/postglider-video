@@ -74,9 +74,13 @@ See `research/decisions.md` D-2026-08-23i.
   matches what was recommended to protect the $400 hackathon signup credit. Host
   `wr59ykdj7l.us-central1.gcp.clickhouse.cloud` (HTTPS :8443, native-secure :9440), IP access
   currently open (`0.0.0.0/0` — fine for a demo, tighten later, not urgent).
-  **`mcpEnabled: false`** — the hackathon's hard requirement is runtime use via the official
-  `mcp-clickhouse` MCP server (see DWP's ClickHouse section); this is the next concrete blocker
-  before any retrieval code can satisfy the partner-track rule. `.env.local` holds
+  **`mcpEnabled: true`** (flipped on by Ken 2026-08-24 via Connect → MCP on the service — not
+  discoverable from the Data Sources screen or the `mcp-sessions` console page, which only lists
+  already-approved connections; the actual toggle lives on the service's own Connect menu).
+  Confirmed live via the Management API. This is ClickHouse's own hosted Remote MCP endpoint
+  (`mcp.clickhouse.cloud`, OAuth 2.0) — satisfies the hackathon's "official ClickHouse MCP server"
+  requirement without self-hosting `mcp-clickhouse`. Not yet connected to any client (Claude Code,
+  Agent Builder) — that's the next step. `.env.local` holds
   `CLICKHOUSE_ADMIN_KEY_ID`/`CLICKHOUSE_ADMIN_KEY_SECRET` — **Management API only, explicitly
   no data access** (Ken's own key naming/scoping choice, "Claude Infra 1") — a separate
   data-plane credential is needed before this app can read/write rows via SQL or MCP.
