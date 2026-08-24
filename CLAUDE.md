@@ -66,6 +66,20 @@ See `research/decisions.md` D-2026-08-23i.
   final retrieval quality. `node demo-corpus/search-demo.mjs "<query>"`.
 - **AWS access (see "AWS access" section above)** 🟢 provisioned, not yet used for anything beyond
   the toolkit verification call — Phase 1's real S3/ClickHouse build is still ahead.
+- **ClickHouse Cloud** 🟡 org + service provisioned 2026-08-24, MCP not yet enabled. Org
+  "PostGlider" (`770a28dc-e6d7-4510-a34a-47114a791f38`), service `postglider-video`
+  (`003ef1f0-4700-460f-8369-461a37fd3103`), GCP `us-central1` (Iowa — colocated with
+  `postglider-autonomous`'s own Cloud Run region, Ken's deliberate call, better than what was
+  first suggested). Scaling: 8↔32 GiB/replica, 2 replicas, idle auto-suspend on (15min timeout) —
+  matches what was recommended to protect the $400 hackathon signup credit. Host
+  `wr59ykdj7l.us-central1.gcp.clickhouse.cloud` (HTTPS :8443, native-secure :9440), IP access
+  currently open (`0.0.0.0/0` — fine for a demo, tighten later, not urgent).
+  **`mcpEnabled: false`** — the hackathon's hard requirement is runtime use via the official
+  `mcp-clickhouse` MCP server (see DWP's ClickHouse section); this is the next concrete blocker
+  before any retrieval code can satisfy the partner-track rule. `.env.local` holds
+  `CLICKHOUSE_ADMIN_KEY_ID`/`CLICKHOUSE_ADMIN_KEY_SECRET` — **Management API only, explicitly
+  no data access** (Ken's own key naming/scoping choice, "Claude Infra 1") — a separate
+  data-plane credential is needed before this app can read/write rows via SQL or MCP.
 
 ## Conventions
 
