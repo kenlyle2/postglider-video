@@ -1,0 +1,210 @@
+<title>The Evidence Archive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --ground: #14302a;
+    --surface: #1c3d34;
+    --surface-2: #234a3f;
+    --line: #2f5c4e;
+    --cream: #f2ece1;
+    --cream-dim: #b7c5bc;
+    --coral: #e2765a;
+    --coral-dim: #8f4a38;
+    --sage: #8fbfa1;
+    --sage-dim: #4d7862;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--cream);
+    font-family: 'Work Sans', -apple-system, sans-serif;
+    font-size: 1.05rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 4.5rem 1.5rem 6rem; }
+
+  h1, h2, h3, .eyebrow {
+    font-family: 'Fraunces', Georgia, serif;
+    text-wrap: balance;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--coral);
+    font-weight: 500;
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 5.6vw, 3.1rem);
+    line-height: 1.12;
+    font-weight: 500;
+    margin: 0 0 1.3rem;
+    letter-spacing: -0.01em;
+  }
+
+  .lede { font-size: 1.2rem; color: var(--cream-dim); max-width: 34em; margin: 0 0 2.2rem; }
+  .lede b { color: var(--cream); font-weight: 600; }
+
+  section { margin: 4.4rem 0; }
+  .panel-head { display: flex; align-items: baseline; gap: 0.9rem; margin-bottom: 0.4rem; }
+  .status { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.22rem 0.55rem; border-radius: 2px; font-weight: 500; }
+  .status.live { background: rgba(143,191,161,0.16); color: var(--sage); border: 1px solid rgba(143,191,161,0.4); }
+  .status.next { background: rgba(226,118,90,0.14); color: var(--coral); border: 1px solid rgba(226,118,90,0.4); }
+
+  h2 { font-size: 1.7rem; font-weight: 500; margin: 0 0 1.1rem; color: var(--cream); }
+  p { margin: 0 0 1.1rem; }
+  .dim { color: var(--cream-dim); }
+
+  .ledger { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 1.8rem 0; }
+  .ledger-row { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; padding: 1.1rem 1.3rem; border-bottom: 1px solid var(--line); }
+  .ledger-row:last-child { border-bottom: none; }
+  .ledger-q { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--cream); }
+  .ledger-result { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--coral); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ledger-detail { grid-column: 1 / -1; font-size: 0.97rem; color: var(--cream-dim); margin-top: 0.3rem; }
+  .ledger-detail .clip { color: var(--cream); font-style: italic; }
+  .ledger-detail .ts { font-family: 'IBM Plex Mono', monospace; font-style: normal; font-size: 0.78rem; color: var(--sage); }
+
+  /* --- Testimonial / evidence cards --- */
+  .evidence { display: grid; gap: 1rem; margin: 1.8rem 0; }
+  .ev-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--coral);
+    border-radius: 4px;
+    padding: 1.3rem 1.5rem;
+  }
+  .ev-quote { font-family: 'Fraunces', serif; font-style: italic; font-size: 1.08rem; color: var(--cream); margin: 0 0 0.7rem; }
+  .ev-meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; color: var(--cream-dim); flex-wrap: wrap; gap: 0.5rem; }
+  .ev-outcome {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--sage);
+    background: rgba(143,191,161,0.1);
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+  }
+
+  .structured {
+    background: var(--surface-2);
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 1.3rem 1.5rem;
+    margin: 1.6rem 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--cream-dim);
+    overflow-x: auto;
+  }
+  .structured .key { color: var(--sage); }
+  .structured .str { color: var(--coral); }
+
+  .cards { display: grid; gap: 1rem; margin: 1.8rem 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1.4rem 1.5rem; }
+  .card h3 { font-size: 1.05rem; color: var(--coral); margin: 0 0 0.5rem; font-weight: 500; font-family: 'Fraunces', serif; }
+  .card p { margin: 0; color: var(--cream-dim); font-size: 0.98rem; }
+
+  .close { margin-top: 5rem; padding-top: 2.2rem; border-top: 1px solid var(--line); color: var(--cream-dim); font-size: 1rem; }
+  .close b { color: var(--cream); font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fade-in { animation: fadeIn 0.7s ease-out both; }
+    section:nth-of-type(1) { animation-delay: 0.05s; }
+    section:nth-of-type(2) { animation-delay: 0.12s; }
+    section:nth-of-type(3) { animation-delay: 0.19s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  }
+  @media (max-width: 520px) {
+    .ledger-row { grid-template-columns: 1fr; }
+    .ledger-result { justify-self: start; }
+    .ev-meta { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">for Johanna's Raw Foods</p>
+  <h1>Every transformation you've ever documented, finally searchable.</h1>
+  <p class="lede">Years of Mastermind sessions, webinars, and client stories — plus a homepage full of real outcomes people don't scroll far enough to find. <b>The evidence already exists.</b> It just isn't structured yet.</p>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status live">already working</span></div>
+    <h2>1 — A question answered from your own coaching sessions</h2>
+    <p>Not a transcript dump. A real question, answered in seconds, pointing straight to the exact minute you said it — across the Mastermind series, the chronic-disease webinars, Fitness Over Fifty. Every line below is a real query run against a 20-video slice of your channel.</p>
+
+    <div class="ledger">
+      <div class="ledger-row">
+        <div class="ledger-q">"chronic disease"</div>
+        <div class="ledger-result">26 results</div>
+        <div class="ledger-detail"><span class="clip">MASTERMIND My Chronic Disease</span> <span class="ts">— 0:26</span></div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-q">stress <span style="color:var(--sage)">AND</span> sugar</div>
+        <div class="ledger-result">0 results</div>
+        <div class="ledger-detail">Genuinely two separate sessions — "Sick from Stress" and "The NEED for SWEET" never overlap in one clip. A search that admits that is worth more than one that always finds something.</div>
+      </div>
+    </div>
+    <p class="dim">Scaled past this 20-video sample to your full catalog, that's every disease you've addressed, every Mastermind topic, every "how do I actually start" — on tap for anyone weighing a $3,500 program before they'll pick up the phone.</p>
+  </section>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status next">the next step</span></div>
+    <h2>2 — Your testimonials, structured instead of scattered</h2>
+    <p>Your homepage already carries the actual proof — a real client's blood pressure, another's mobility with an HIV diagnosis. Right now it's prose. Structured, each becomes a citable, filterable piece of evidence instead of something a visitor has to read the whole page to find.</p>
+
+    <div class="evidence">
+      <div class="ev-card">
+        <div class="ev-quote">"It's astonishing to me! Because for two decades I was always eating and always hungry. From the first meal in Johanna's program, I was SATISFIED."</div>
+        <div class="ev-meta"><span>from your homepage</span><span class="ev-outcome">satiety / appetite regulation</span></div>
+      </div>
+      <div class="ev-card">
+        <div class="ev-quote">Blood pressure reduction, 180 → 130 — with real, specific numbers.</div>
+        <div class="ev-meta"><span>from your homepage</span><span class="ev-outcome">blood pressure</span></div>
+      </div>
+      <div class="ev-card">
+        <div class="ev-quote">Improved mobility, documented alongside an HIV diagnosis.</div>
+        <div class="ev-meta"><span>from your homepage</span><span class="ev-outcome">mobility</span></div>
+      </div>
+    </div>
+
+    <p>The same structuring works on video, not just text — you already have at least one real client testimonial on your channel:</p>
+    <div class="ledger">
+      <div class="ledger-row">
+        <div class="ledger-q">source: YouTube</div>
+        <div class="ledger-result">real clip</div>
+        <div class="ledger-detail"><span class="clip">JS CBM a'Ali de Sousa testimonial</span> — a client, on camera, telling their own story.</div>
+      </div>
+    </div>
+
+    <p class="dim">What that looks like once it's structured, not just proposed as an idea:</p>
+    <div class="structured">{<br>
+&nbsp;&nbsp;<span class="key">"quote"</span>: <span class="str">"From the first meal in Johanna's program, I was SATISFIED."</span>,<br>
+&nbsp;&nbsp;<span class="key">"outcome"</span>: <span class="str">"appetite regulation, two decades of hunger resolved"</span>,<br>
+&nbsp;&nbsp;<span class="key">"source"</span>: <span class="str">"website"</span><br>
+}</div>
+  </section>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status next">also proposed</span></div>
+    <h2>3 — Recipes, captured on the way to somewhere permanent</h2>
+    <p>Less central to your site than testimonials, but real: whatever recipe content exists gets captured the same structured way — a staging point, not the final home. The real destination is your actual recipe system, with this as the bridge that gets content there without retyping it by hand.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Same structure, different category</h3>
+        <p>Testimonials and recipes share one mechanism — a category, a validated shape, one function that knows how to read each kind back out. Adding a third kind of content later is a new category, not a new table.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="close">The search half is real, running today, answering real questions from real sessions. <b>Ken can walk you through it live</b> — and the testimonial/recipe structuring above is the concrete next conversation, not a maybe.</p>
+
+</div>
