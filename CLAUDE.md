@@ -135,6 +135,18 @@ See `research/decisions.md` D-2026-08-23i.
     "ugly demo," not a hardened artifact. Fine for showing Chris; not fine to expose publicly
     as-is.
 
+- **YouTuber onboarding variant + background-plate extraction — DWP scoped, real free feasibility
+  test run, 2026-08-24.** See `.dwp/plans/youtuber-onboarding-variant.md` for the full plan. Built
+  while Ken was away (asked to advance as far as responsibly possible; no paid API calls made).
+  Key real finding: single-video temporal median stacking (`numpy`, free, `ffmpeg` for frame
+  extraction) partially but not fully removes a person from a static-camera shot — evidence saved
+  at `.dwp/evidence/background-extraction-test/`. Cross-video clustering (pooling frames from many
+  videos sharing the same physical setup) is the next real hypothesis to test, supported by direct
+  evidence that the same kitchen recurs across different videos/camera angles. `ffmpeg` installed
+  via `brew` (user-local) this session, now available for any future video-processing work.
+  Everything past this feasibility test (full-catalog clustering, actual inpainting) needs Ken's
+  go-ahead — real spend, not yet approved.
+
 ## Conventions
 
 Same as `postglider-gtm` and `postglider-auto`: Node.js/`.cjs`/`.ts`, secrets in `.env.local`
