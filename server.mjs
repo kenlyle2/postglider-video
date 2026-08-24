@@ -71,11 +71,19 @@ function parseQuery(q) {
     return { sql, terms, ops };
 }
 
-const PAGE = (results, q, error) => `<!doctype html>
-<html><head><title>therawadvantage — video Q&A demo (rough)</title>
+const CHANNELS = {
+    therawadvantage: { label: 'therawadvantage', placeholder: 'curry AND thai, or "red curry"' },
+    johannasrawfoods: { label: "Johanna's Raw Foods (Mastermind/coaching)", placeholder: 'stress AND sugar, or "chronic disease"' },
+};
+
+const PAGE = (results, q, error, channel) => `<!doctype html>
+<html><head><title>${CHANNELS[channel]?.label || channel} — video Q&A demo (rough)</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem;color:#222}
 h1{font-size:1.3rem}
+.channels{margin-bottom:1rem}
+.channels a{margin-right:1rem;color:#666;text-decoration:none}
+.channels a.active{color:#222;font-weight:bold;text-decoration:underline}
 input[type=text]{width:70%;padding:.5rem;font-size:1rem}
 button{padding:.5rem 1rem;font-size:1rem}
 .hit{border-bottom:1px solid #ddd;padding:.75rem 0}
@@ -86,12 +94,14 @@ mark{background:#ffe08a}
 .error{color:#b00;margin:1rem 0}
 </style></head>
 <body>
-<h1>therawadvantage transcript search (prototype, ClickHouse-backed, 20 videos)</h1>
+<div class="channels">${Object.entries(CHANNELS).map(([id, c]) => `<a href="/?channel=${id}" class="${id === channel ? 'active' : ''}">${c.label}</a>`).join('')}</div>
+<h1>${CHANNELS[channel]?.label || channel} transcript search (prototype, ClickHouse-backed, 20 videos)</h1>
 <form method="get" action="/">
-  <input type="text" name="q" value="${q ? q.replace(/"/g, '&quot;') : ''}" placeholder='curry AND thai, or "red curry"' autofocus>
+  <input type="hidden" name="channel" value="${channel}">
+  <input type="text" name="q" value="${q ? q.replace(/"/g, '&quot;') : ''}" placeholder='${CHANNELS[channel]?.placeholder || ''}' autofocus>
   <button type="submit">Search</button>
 </form>
-<div class="help">Supports <b>AND</b> / <b>OR</b> between bare words (default is AND if you leave it out), and <b>"exact phrases"</b> in quotes. Try: <code>curry</code>, <code>curry AND thai</code>, <code>sushi OR nori</code>, <code>"red curry"</code> (try it — it's genuinely empty), <code>"indian curry"</code>.</div>
+<div class="help">Supports <b>AND</b> / <b>OR</b> between bare words (default is AND if you leave it out), and <b>"exact phrases"</b> in quotes.</div>
 ${error ? `<div class="error">${error}</div>` : ''}
 ${results ? `<div>${results.length} matching segment(s)${q ? ` for <code>${q}</code>` : ''}</div>` : ''}
 ${(results || []).map(r => `
@@ -119,19 +129,20 @@ const server = createServer(async (req, res) => {
         return;
     }
     const q = url.searchParams.get('q') || '';
+    const channel = CHANNELS[url.searchParams.get('channel')] ? url.searchParams.get('channel') : 'therawadvantage';
     if (!q.trim()) {
-        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(null, ''));
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(null, '', null, channel));
         return;
     }
 
     const parsed = parseQuery(q);
     if (!parsed) {
-        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE([], q));
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE([], q, null, channel));
         return;
     }
 
     try {
-        const sql = `SELECT video_id, title, url, start_seconds, text FROM default.video_segments WHERE ${parsed.sql} ORDER BY video_id, start_seconds FORMAT JSONEachRow`;
+        const sql = `SELECT video_id, title, url, start_seconds, text FROM default.video_segments WHERE channel = '${channel.replace(/'/g, "''")}' AND (${parsed.sql}) ORDER BY video_id, start_seconds FORMAT JSONEachRow`;
         const raw = await chQuery(sql);
         const rows = raw.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
         const results = rows.map(r => {
@@ -144,9 +155,9 @@ const server = createServer(async (req, res) => {
                 snippet: highlight(r.text, parsed.terms),
             };
         });
-        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(results, q));
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(results, q, null, channel));
     } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(null, q, String(err.message || err)));
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(PAGE(null, q, String(err.message || err), channel));
     }
 });
 
