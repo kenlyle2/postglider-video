@@ -84,7 +84,17 @@ presence on her coaching page) — likely needs a Gemini vision classification s
 than this — a real vision-classification design pass is its own follow-on once Ken confirms this
 is worth building.
 
-## Proposed, NOT built: a `features` table (Testimonials + Recipes, JSON blob + unfurl function)
+## BUILT 2026-08-24: a `features` table (Testimonials + Recipes, JSON blob + unfurl function)
+
+Built per the design below, verbatim — see `postglider-auto/docs/BUILD-HISTORY.md`'s 2026-08-24
+entry and `research/decisions.md` D-2026-08-24i. `public.features` table live, `lib/utils/features.ts`
+(Zod schemas + `unfurlFeature`/`summarizeFeature`), and real one-click Testimonials/Recipes chips
+in `GeniePicker.tsx`, conditioned on the business having real rows in that category. Johanna's 5
+real testimonials backfilled and proven working end-to-end; her Recipes chip correctly does not
+appear (no real recipe content for her). The extraction pass into `features` (below) and the
+`businessType` flag remain not built — the table/UI are ready for extraction to feed them.
+
+## Proposed, NOT built (superseded by above — kept for design record)
 
 Ken's own proposal, verbatim: "a new table called Features, with at least two categories, starting
 with Testimonials and Recipes, with their data as a single JSON field and a function that knows
