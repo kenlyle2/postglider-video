@@ -108,6 +108,33 @@ See `research/decisions.md` D-2026-08-23i.
   superuser credential — consider running `CREATE USER` for a more narrowly-scoped user before any
   production write path depends on it, not yet done.
 
+- **Working search demo for Chris — built and verified live, 2026-08-24** (Ken's own framing:
+  "even an ugly one page form... where we can play with the questions from earlier"). This is a
+  client-demo artifact, deliberately separate from the hackathon-submission requirement that the
+  *agent* use ClickHouse via `mcp-clickhouse` at runtime — this demo hits ClickHouse directly over
+  its data-plane HTTP interface, no Agent Builder/MCP involved. Real progress either way; the
+  MCP-compliant version is still Phase 2 of the DWP.
+  - **`scripts/load-segments-to-clickhouse.mjs`**: loads all 20 videos' 844 real transcript
+    segments from `demo-corpus/ethnic-foods/captions/*.json` into a new
+    `default.video_segments` table (`video_id, title, url, start_seconds, text`). Verified live:
+    844 rows landed.
+  - **`server.mjs`** (`node server.mjs [port]`, default 8420, zero npm dependencies —
+    plain Node `http`): one ugly HTML page, one search box, real **AND / OR / "quoted phrase"**
+    boolean query support (bare words default to AND if no operator given). Queries ClickHouse
+    directly (POST, ILIKE), returns timestamped, deep-linked, highlighted results.
+  - **Verified live against the exact questions this thread explored earlier** — confirms the
+    demo isn't just plumbing, it reproduces the real findings:
+    - `curry` → 69 segment matches
+    - `curry AND thai` → 4
+    - `"red curry"` (quoted, exact phrase) → **0** — correctly reproduces the earlier finding that
+      this phrase never actually occurs, this time via the UI instead of a manual grep
+    - `"indian curry"` → 2, real deep-linked results including "Best Curry Recipe | Raw Vegan
+      Authentic Indian Curry" at `&t=161s`
+    - `sushi OR nori` → 101
+  - **Not yet done**: no deployment (runs locally only), no auth, no rate limiting — a real
+    "ugly demo," not a hardened artifact. Fine for showing Chris; not fine to expose publicly
+    as-is.
+
 ## Conventions
 
 Same as `postglider-gtm` and `postglider-auto`: Node.js/`.cjs`/`.ts`, secrets in `.env.local`
