@@ -1,0 +1,349 @@
+<title>The Living Archive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --ink: #1a1712;
+    --surface: #241f18;
+    --surface-2: #2d271e;
+    --line: #3c352a;
+    --paper: #f2ece0;
+    --paper-dim: #b9b0a0;
+    --turmeric: #d99a2b;
+    --turmeric-dim: #8a6420;
+    --herb: #8ba36a;
+    --herb-dim: #5c6f45;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+    font-size: 1.08rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 4.5rem 1.5rem 6rem; }
+
+  h1, h2, h3, .eyebrow {
+    font-family: 'Bricolage Grotesque', 'Arial Black', sans-serif;
+    text-wrap: balance;
+  }
+
+  .eyebrow {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--turmeric);
+    font-weight: 600;
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-size: clamp(2.3rem, 6vw, 3.4rem);
+    line-height: 1.06;
+    font-weight: 700;
+    margin: 0 0 1.3rem;
+    letter-spacing: -0.01em;
+  }
+
+  .lede {
+    font-size: 1.25rem;
+    color: var(--paper-dim);
+    max-width: 34em;
+    margin: 0 0 3rem;
+  }
+
+  .lede b { color: var(--paper); font-weight: 500; }
+
+  .question {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.92rem;
+    color: var(--herb);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0.9rem 1.1rem;
+    display: inline-block;
+    margin-bottom: 2.6rem;
+  }
+
+  .question::before { content: "chris — "; color: var(--paper-dim); }
+
+  section { margin: 4.6rem 0; }
+
+  .panel-head { display: flex; align-items: baseline; gap: 0.9rem; margin-bottom: 0.4rem; }
+
+  .panel-head .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.55rem;
+    border-radius: 2px;
+    font-weight: 500;
+  }
+  .status.live { background: rgba(139,163,106,0.16); color: var(--herb); border: 1px solid rgba(139,163,106,0.35); }
+  .status.next { background: rgba(217,154,43,0.14); color: var(--turmeric); border: 1px solid rgba(217,154,43,0.35); }
+
+  h2 { font-size: 1.8rem; font-weight: 700; margin: 0 0 1.1rem; color: var(--paper); }
+
+  p { margin: 0 0 1.1rem; }
+  .dim { color: var(--paper-dim); }
+
+  /* --- Search panel: evidence ledger --- */
+  .ledger {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 1.8rem 0;
+  }
+  .ledger-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: start;
+    padding: 1.1rem 1.3rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .ledger-row:last-child { border-bottom: none; }
+  .ledger-q {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.86rem;
+    color: var(--paper);
+  }
+  .ledger-q .op { color: var(--herb); }
+  .ledger-result {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.86rem;
+    color: var(--turmeric);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .ledger-detail {
+    grid-column: 1 / -1;
+    font-family: 'Newsreader', serif;
+    font-size: 0.98rem;
+    color: var(--paper-dim);
+    margin-top: 0.3rem;
+  }
+  .ledger-detail .clip {
+    color: var(--paper);
+    font-style: italic;
+  }
+  .ledger-detail .ts {
+    font-family: 'IBM Plex Mono', monospace;
+    font-style: normal;
+    font-size: 0.8rem;
+    color: var(--herb);
+  }
+
+  .quote-block {
+    border-left: 2px solid var(--turmeric);
+    padding: 0.2rem 0 0.2rem 1.2rem;
+    margin: 1.6rem 0;
+    font-style: italic;
+    color: var(--paper);
+  }
+  .quote-block .src { display: block; font-family: 'IBM Plex Mono', monospace; font-style: normal; font-size: 0.78rem; color: var(--paper-dim); margin-top: 0.4rem; }
+
+  /* --- Compile panel: cards --- */
+  .cards { display: grid; gap: 1rem; margin: 1.8rem 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1.4rem 1.5rem;
+  }
+  .card h3 {
+    font-size: 1.05rem;
+    color: var(--turmeric);
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+  }
+  .card p { margin: 0; color: var(--paper-dim); font-size: 0.98rem; }
+  .card .from {
+    display: block;
+    margin-top: 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--herb-dim);
+    color: var(--herb);
+  }
+
+  /* --- On-site mockup --- */
+  .browser {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1.8rem 0;
+    background: var(--surface-2);
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .browser-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .browser-url {
+    margin-left: 0.6rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--paper-dim);
+  }
+  .browser-body { padding: 2rem 1.6rem; }
+  .site-search {
+    display: flex;
+    gap: 0.6rem;
+    border: 1px solid var(--turmeric-dim);
+    border-radius: 5px;
+    padding: 0.7rem 0.9rem;
+    background: var(--ink);
+  }
+  .site-search input {
+    background: none; border: none; outline: none;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--paper); font-size: 0.9rem; flex: 1;
+  }
+  .site-search .go { color: var(--turmeric); font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; }
+  .site-caption { text-align: center; color: var(--paper-dim); font-size: 0.85rem; margin-top: 1rem; font-family: 'IBM Plex Mono', monospace; }
+
+  .close {
+    margin-top: 5rem;
+    padding-top: 2.2rem;
+    border-top: 1px solid var(--line);
+    color: var(--paper-dim);
+    font-size: 1rem;
+  }
+  .close b { color: var(--paper); font-weight: 500; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fade-in { animation: fadeIn 0.7s ease-out both; }
+    section:nth-of-type(1) { animation-delay: 0.05s; }
+    section:nth-of-type(2) { animation-delay: 0.12s; }
+    section:nth-of-type(3) { animation-delay: 0.19s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  }
+
+  @media (max-width: 520px) {
+    .ledger-row { grid-template-columns: 1fr; }
+    .ledger-result { justify-self: start; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">for therawadvantage</p>
+  <h1>The archive stops being a haystack.</h1>
+  <p class="lede">Seven hundred videos is a lot of you — every technique, every "is this ripe yet," every curry you've ever talked through. Right now almost none of it is <b>findable</b>. Two ways to fix that, one already proven against your own words.</p>
+
+  <div class="question">"how do you envision it being utilized / applied to the site?"</div>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status live">already working</span></div>
+    <h2>1 — A search box that's actually seen every video</h2>
+    <p>Not YouTube's search. A real question, answered from your own transcripts, in seconds, pointing straight to the exact second you said it. Every line below is a real query run against a 20-video slice of your catalog — nothing staged.</p>
+
+    <div class="ledger">
+      <div class="ledger-row">
+        <div class="ledger-q">"red curry"</div>
+        <div class="ledger-result">0 results</div>
+        <div class="ledger-detail">Genuinely never said — a search that admits what isn't there is worth more than one that always finds something.</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-q">"indian curry"</div>
+        <div class="ledger-result">2 results</div>
+        <div class="ledger-detail"><span class="clip">Best Curry Recipe | Raw Vegan Authentic Indian Curry</span> <span class="ts">— 2:41</span></div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-q">curry <span class="op">AND</span> thai</div>
+        <div class="ledger-result">4 results</div>
+        <div class="ledger-detail"><span class="clip">Raw Thai Curry Recipe with Lena</span> <span class="ts">— 15:44</span></div>
+      </div>
+    </div>
+
+    <p>Ask it "does Chris prefer Indian or Thai curry" and it doesn't guess — it hands back your own voice:</p>
+    <div class="quote-block">
+      "the Indian curries were always my favorite — aloo gobi."
+      <span class="src">Ethiopian Lentil Wat Stew Recipe, Chef AJ Live</span>
+    </div>
+    <div class="quote-block">
+      "there are a lot of Thai curries that don't really use curry powder — they just use the curry kind of flavors, like lime leaf and ginger."
+      <span class="src">Raw Thai Curry Recipe with Lena</span>
+    </div>
+    <p class="dim">Scaled to the full ~700-video catalog, that's every ripeness tip, every knife technique, every ingredient swap you've ever mentioned — on tap, for you or for anyone who lands on the site with a specific question.</p>
+  </section>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status live">no editing required</span></div>
+    <h2>2 — Or skip video editing entirely: an index post</h2>
+    <p>The cheapest version of all doesn't touch a timeline. Point the same index at a theme and it hands back a written page — captions, the real quote, a timestamped link straight into the original video — published as a blog post, not a new upload.</p>
+
+    <div class="ledger">
+      <div class="ledger-row">
+        <div class="ledger-q">theme: "curry"</div>
+        <div class="ledger-result">draft post</div>
+        <div class="ledger-detail">
+          <b style="color:var(--paper)">Everything I've Said About Curry</b><br>
+          "the Indian curries were always my favorite — aloo gobi." <span class="clip">— Ethiopian Lentil Wat Stew Recipe</span> <span class="ts">2:38 ↗</span><br>
+          "Thai curries don't really use curry powder — lime leaf and ginger instead." <span class="clip">— Raw Thai Curry Recipe with Lena</span> <span class="ts">15:44 ↗</span>
+        </div>
+      </div>
+    </div>
+    <p class="dim">No filming, no editing pass at all — just the archive, organized and written up. Real SEO content, live the same day, and a natural on-ramp to option 3 once a given theme proves itself worth a real compiled video.</p>
+  </section>
+
+  <section class="fade-in">
+    <div class="panel-head"><span class="status next">the next step</span></div>
+    <h2>3 — New videos, built from footage you already shot</h2>
+    <p>The same index that answers a question can hand back the matching <em>clips</em>. Point it at a theme and it assembles a new video from your archive — no new filming, no new setup. Three you mentioned:</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Knifework Techniques</h3>
+        <p>Every clip across the catalog where you're demonstrating a cut or a blade skill, pulled together into one instructional reel — a technique library that exists today, scattered across hundreds of unrelated uploads.</p>
+        <span class="from">assembled from footage already in the archive</span>
+      </div>
+      <div class="card">
+        <h3>Is It Ripe Yet?</h3>
+        <p>Every offhand "here's how you know an avocado's ready" or "this mango's a day early," stitched into the one video people actually search for — instead of buried at minute 6 of a recipe they weren't looking for.</p>
+        <span class="from">assembled from footage already in the archive</span>
+      </div>
+      <div class="card">
+        <h3>Everything I Know About Curry</h3>
+        <p>The aloo gobi line above, the Thai-vs-Indian distinction, every curry you've ever built on camera — a single deep-dive that's really years of archive, argued in your own words, not reshot.</p>
+        <span class="from">assembled from footage already in the archive</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="fade-in">
+    <h2>Where it lives</h2>
+    <p>All three live on <b>therawadvantage.com</b> itself, not off in a third-party tool — the search box especially: a visitor with a specific question stays on your site to get the answer, instead of bouncing to YouTube's own weak search and maybe not coming back.</p>
+
+    <div class="browser">
+      <div class="browser-bar">
+        <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+        <span class="browser-url">therawadvantage.com</span>
+      </div>
+      <div class="browser-body">
+        <div class="site-search">
+          <input type="text" value="how do you know an avocado is ripe?" readonly>
+          <span class="go">↵</span>
+        </div>
+        <div class="site-caption">ask the archive anything</div>
+      </div>
+    </div>
+  </section>
+
+  <p class="close">This isn't a mockup of a plan — the search half is real, running today, answering real questions from real footage. <b>Ken can walk you through it live</b> whenever you want to see it.</p>
+
+</div>
