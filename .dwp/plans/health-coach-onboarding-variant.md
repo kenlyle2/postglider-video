@@ -49,30 +49,38 @@ handle a second channel:
   real question, get a real answer from her own words" mechanic proven for Chris, now proven for
   a genuinely different content shape (long-form coaching talk vs. short recipe demos).
 
-## Proposed, NOT built: testimonial-focused website extraction
+## BUILT 2026-08-25: testimonial-focused website extraction
 
-**The real gap**: `postglider-auto`'s existing website scraper (`websiteIntelligence.ts`'s
-`mineWebsite()`) already crawls a site for team/staff pages and does Gemini-based page
-classification (confirmed via the codebase graph during earlier onboarding work — see
-`postglider-gtm/.dwp/plans/00-ultimate-marketing-system.md`'s reference to it). It does not
-currently have a testimonial-extraction pass. For a health coach, testimonials are arguably the
-single highest-value piece of content on the whole site — social proof is the actual sales
-mechanism for a $3,500 program — and they're currently invisible to onboarding.
+Built per the design below, generalized (not health-coach-gated -- runs for every business that
+has a website, same as the photos/team facets). See `postglider-auto/docs/BUILD-HISTORY.md`'s
+2026-08-25 entry and `research/decisions.md` D-2026-08-25a for the full writeup.
+`extractTestimonialsFromPage()` (`lib/genie/websiteIntelligence.ts`) runs the same two-tier
+Gemini-structured-extraction pattern already used for team members, against every page the
+photos/team/story facets already fetch plus any page classified `testimonials` -- not limited to
+a dedicated page, confirmed against Johanna's real site (testimonials scattered across her
+homepage, coaching page, and a "Tell Us" feedback page). Writes into `features`
+(category='testimonial'), deduped by full-text substring match against what's already on file.
 
-**Proposed addition** (not built — real change to a shared, production onboarding path, needs
-Ken's go-ahead per the standing rule that onboarding logic lives in/is called by the one canonical
-pipeline, not a side script):
-1. New pass in `mineWebsite()` (or a sibling function it calls): crawl the homepage plus any
-   dedicated testimonials/reviews/about page, and use Gemini to identify and structure testimonial
-   blocks — quote text, author name/detail if given, and any named outcome (matches the real shape
-   found on Johanna's site: a name-optional quote plus a specific health result).
-2. Write structured results into the new `features` table (below), `category = 'testimonial'`.
-3. **Gated by the same `businessType` concept** as the YouTuber variant — this isn't necessarily
-   only for health coaches; any service business with real testimonials benefits, but it's being
-   scoped here because Johanna's case made the gap concrete. Whether it becomes a universal pass or
-   a business-type-gated one is a real product call, not decided here.
+**Real bug found and fixed chasing this**: Johanna's site's sitemap XML declared page URLs on a
+stale domain/scheme (`http://johannasrawfoods.com/...`) that didn't exact-match her canonical
+`website_url` (`https://www.johannasrawfoods.com/`) -- `discoverSitePages()`'s origin-equality
+filter silently dropped every discovered page as a result, so EVERY facet (not just testimonials)
+had only ever crawled the homepage for her. Fixed in `lib/integrations/siteCrawler.ts` with a
+hostname-based (not exact-origin) comparison -- `discoveredPageCount` went 0 → 19 for her
+immediately. Likely affects other real accounts with similar migration history.
+
+**Testimonial-giver photos**: real capture path built (Gemini picks a photo by index, same
+anti-hallucination pattern as team-member photo extraction, vision-confirmed before trusting it),
+written to `brand_assets` with a new `role = 'testimonial'` (additive to owner/worker/team) and a
+`feature_id` FK back to the specific testimonial. Checked for Johanna specifically: none of her
+12 real testimonials have a paired photo on her site -- confirmed via the real extraction pass
+across her full site, not assumed.
 
 ## Proposed, NOT built: headshot/bodyshot capture from the website
+
+(Distinct from testimonial-giver photo capture, which IS built as of 2026-08-25 above -- this
+section is specifically about capturing the OWNER/COACH's own photo automatically from their
+website, the way a physical business gets it from GMB. Still not built.)
 
 Same category of proposal — real gap, not yet built. Physical businesses already get owner/staff
 photos via GMB photo enrichment; a virtual/coach business has no GMB, so this path is currently
@@ -93,6 +101,15 @@ in `GeniePicker.tsx`, conditioned on the business having real rows in that categ
 real testimonials backfilled and proven working end-to-end; her Recipes chip correctly does not
 appear (no real recipe content for her). The extraction pass into `features` (below) and the
 `businessType` flag remain not built — the table/UI are ready for extraction to feed them.
+
+**Update 2026-08-25**: the testimonial extraction pass IS now built (above) — her Testimonials
+chip is backed by 12 real, extracted testimonials, not just the original 5 backfilled by hand.
+Recipe extraction is still not built (her site has at least one recipe-shaped page,
+`free-recipes-of-the-month.html`, confirmed during the 2026-08-25 crawl). Also built 2026-08-25:
+two new visual Archetypes, `THE_TESTIMONIAL_QUOTE` and `THE_RECIPE_CARD`
+(`postglider-auto/lib/utils/designSystem.ts`), wired as the default wordmark-placement template
+for any post sourced from the Testimonials/Recipes chips — real and live for Johanna and every
+account going forward, not a per-business setting.
 
 ## Proposed, NOT built (superseded by above — kept for design record)
 
