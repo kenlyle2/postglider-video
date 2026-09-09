@@ -88,11 +88,12 @@
     <span id="cookie-toggle">Need to download a clip? Set up your YouTube cookies once ▾</span>
     <div id="cookie-panel">
       <ol>
-        <li>Install a cookie-export extension (e.g. "Get cookies.txt LOCALLY" for Chrome/Firefox).</li>
-        <li>While logged into YouTube, use it to export cookies for <code>youtube.com</code>.</li>
-        <li>Paste the exported file's contents below. It's sent with your download request only -- never stored, never logged.</li>
+        <li>Install a cookie-export browser extension -- e.g. <strong>Cookie-Editor</strong> (Chrome/Firefox) or "Get cookies.txt LOCALLY."</li>
+        <li>Go to <code>youtube.com</code> while logged into the account that owns this content, open the extension, and export.</li>
+        <li><strong>Export format matters: pick "Netscape" specifically</strong> (Cookie-Editor also offers JSON and Header-string -- those will NOT work here). Export ALL cookies for the site, not a single cookie -- there's no one cookie (e.g. <code>LOGIN_INFO</code> alone) that's enough; YouTube's login state is spread across several (session, security-token, and login cookies together).</li>
+        <li>Paste the exported text below, as-is. It's sent with your download request only, used once, and never stored or logged server-side.</li>
       </ol>
-      <textarea id="cookie-text" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  ..."></textarea>
+      <textarea id="cookie-text" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  TRUE  1234567890  NAME  value&#10;(one line per cookie -- paste the whole exported file)"></textarea>
       <div id="cookie-status" class="dim">Not set -- clip downloads will likely fail without this (YouTube blocks Cloud servers by default).</div>
     </div>
   </div>
