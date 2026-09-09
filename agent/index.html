@@ -8,6 +8,9 @@
   h1 { font-size: 1.4rem; }
   .dim { color: #b9b0a0; font-size: 0.95rem; }
   form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
+  #examples { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: -0.7rem 0 1.5rem; }
+  .chip { background: #241f18; color: #d99a2b; border: 1px solid #3c352a; border-radius: 20px; padding: 0.35rem 0.9rem; font-size: 0.82rem; cursor: pointer; font-weight: 500; }
+  .chip:hover { background: #2d271e; }
   input, textarea { flex: 1; padding: 0.7rem 0.9rem; border-radius: 5px; border: 1px solid #3c352a; background: #241f18; color: #f2ece0; font-size: 1rem; font-family: inherit; }
   button { padding: 0.7rem 1.2rem; border-radius: 5px; border: none; background: #d99a2b; color: #1a1712; font-weight: 600; cursor: pointer; }
   button.secondary { background: #3c352a; color: #f2ece0; }
@@ -101,6 +104,13 @@
     <input id="q" placeholder="e.g. compile a video about knife techniques" autofocus>
     <button id="go">Ask</button>
   </form>
+  <div id="examples">
+    <span class="dim">Try one:</span>
+    <button type="button" class="chip" data-q="what has Chris said about curry?">what has Chris said about curry?</button>
+    <button type="button" class="chip" data-q="does Chris have a specific red curry recipe?">does Chris have a red curry recipe?</button>
+    <button type="button" class="chip" data-q="what has Johanna said about chronic disease?">what has Johanna said about chronic disease?</button>
+    <button type="button" class="chip" data-q="compile a video about knife techniques">compile a video about knife techniques</button>
+  </div>
 
   <div id="log-wrap">
     <div id="log-header"><span class="chev">▶</span><span id="log-summary"></span></div>
@@ -137,7 +147,7 @@
     </div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client?hl=en" async defer></script>
   <script>
     // --- Owner sign-in (IP guard) + cookie setup for real clip downloads ---
     let googleIdToken = null;
@@ -166,7 +176,7 @@
     function initGsi(clientId) {
       if (!clientId || !window.google?.accounts?.id) return;
       google.accounts.id.initialize({ client_id: clientId, callback: onGoogleSignIn });
-      google.accounts.id.renderButton(document.getElementById('gsi-btn-wrap'), { theme: 'outline', size: 'small' });
+      google.accounts.id.renderButton(document.getElementById('gsi-btn-wrap'), { theme: 'outline', size: 'small', locale: 'en' });
     }
 
     document.getElementById('cookie-toggle').addEventListener('click', () => {
@@ -453,6 +463,13 @@
       document.getElementById('pool-search').value = '';
       renderPool('');
     }
+
+    document.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.getElementById('q').value = btn.dataset.q;
+        f.requestSubmit();
+      });
+    });
 
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
