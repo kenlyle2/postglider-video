@@ -144,8 +144,9 @@ those two carry the most judging-criteria weight per scene-second (trust + right
   not purchased; the manual "Idea to Video" script-paste flow cannot reference existing footage
   (verified live, see `TASKS.md`). The product's honest claim is: real retrieval + real curation +
   a correctly-formatted handoff for manual assembly, or a directly downloadable real clip.
-- Do not claim the clip-download feature works in all cases if the YouTube bot-detection /
-  cookies issue (see `TASKS.md`) isn't resolved before recording — verify live immediately before
-  it appears in the demo video, don't assume yesterday's fix holds.
+- Clip download requires the user to paste their own YouTube session cookies (YouTube bot-gates
+  Cloud Run's IP range by default) — this is real and working, but say it plainly in the demo
+  rather than implying downloads "just work" with no setup. Verify live immediately before
+  recording regardless — don't assume an earlier fix still holds.
 - Do not claim CI integration, a production/live-app scan, or any Strix-adjacent security testing
   for this entry — unrelated, not built, not needed for this track.

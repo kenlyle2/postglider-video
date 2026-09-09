@@ -32,6 +32,27 @@ check as the real pre-demo verification, not just a 200-status spot check.
 
 ---
 
+## Decision 2026-09-09 — Skipped the ssyoutube.com-style downloader-mirror fallback for clip cutting
+
+Ken suggested a third-party "youtube downloader" mirror site (e.g. ssyoutube.com) as a fallback if
+yt-dlp's cookie-based download didn't work. Once the cookie-paste UI proved to be a real, working
+fix (see the OAuth/cookie-gate commit), decided not to build the mirror-site fallback:
+
+- These sites are built for human interactive use (ad clicks, CAPTCHA, changing DOM) not API
+  integration -- scraping them is inherently fragile and could break without notice, unlike
+  yt-dlp's maintained extractor.
+- Many operate in a legal/ToS gray area themselves (re-serving YouTube content through their own
+  ad-supported domain) -- associating a public hackathon submission's source code with scraping
+  one is a real reputational risk for a judged entry, for no remaining functional benefit once
+  cookies-based download works.
+- Not needed: the cookie-paste path is the legitimate fix and is already live.
+
+If cookies-based download turns out to be unreliable in practice (e.g. cookies expire faster than
+expected), the right next step is investigating yt-dlp's own PO token / cookie-refresh options
+first, not reaching for a scraped mirror site.
+
+---
+
 ## Finding 2026-09-09 — Pictory has no fade-in/fade-out duration control, no inline script directives
 
 While building the Agentic Cinema hackathon agent's "export as script" feature (paste the
