@@ -15,10 +15,12 @@ import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from google import genai
 from google.genai import types
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from pydantic import BaseModel
 
 from clickhouse_mcp import run_select_query
@@ -27,6 +29,42 @@ load_dotenv(Path(__file__).parent.parent / ".env.local")
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODEL = "gemini-3.8-flash"
+
+# --- Download authorization gate -----------------------------------------------------------
+# Downloading a creator's own video content is only allowed for a verified, signed-in Google
+# identity on an explicit allowlist -- an IP/rights guard, not just "anyone with the link."
+# Real identity verification (Google's own ID-token verification, not a self-issued token);
+# the allowlist itself is a hackathon-scoped stand-in for "this business's own verified
+# account" -- a real production version would tie this to each business's own login, not a
+# flat list. Reuses the existing OAuth Client ID already provisioned for postglider-auto's
+# GMB integration (adding this Cloud Run origin to its Authorized JavaScript origins is a
+# one-time Console step, not a new client).
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+ALLOWED_DOWNLOAD_EMAILS = {
+    e.strip().lower() for e in os.environ.get("ALLOWED_DOWNLOAD_EMAILS", "").split(",") if e.strip()
+}
+
+
+def verify_owner(id_token_str: str | None) -> str:
+    """Verifies a Google Identity Services ID token and checks the email against the
+    download allowlist. Returns the verified email on success; raises HTTPException(401)
+    otherwise. Never trusts a client-supplied email -- always re-derives it from Google's
+    own signature verification."""
+    if not id_token_str:
+        raise HTTPException(status_code=401, detail="Sign in with Google to download clips.")
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            id_token_str, google_requests.Request(), GOOGLE_OAUTH_CLIENT_ID
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid sign-in token: {e}")
+    email = (claims.get("email") or "").lower()
+    if not claims.get("email_verified") or email not in ALLOWED_DOWNLOAD_EMAILS:
+        raise HTTPException(
+            status_code=403,
+            detail="This Google account isn't authorized to download this creator's clips.",
+        )
+    return email
 
 QUERY_FN = types.FunctionDeclaration(
     name="query_video_archive",
@@ -369,6 +407,7 @@ class CutBody(BaseModel):
     start_seconds: float
     trim_seconds: float = 12
     title: str = "clip"
+    cookies_text: str = ""  # optional: pasted youtube.com session cookies (Netscape format)
 
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,15}$")
@@ -378,33 +417,55 @@ def _safe_filename(title: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", title)[:60] or "clip"
 
 
-def cut_clip(video_id: str, start_seconds: float, trim_seconds: float) -> str:
+def cut_clip(video_id: str, start_seconds: float, trim_seconds: float, cookies_text: str = "") -> str:
     """Downloads just the requested slice of a real, public YouTube video (yt-dlp's
     --download-sections fetches only that byte range where the host supports it) and
-    returns a path to the resulting mp4. Raises on failure -- caller maps to a 4xx/5xx."""
+    returns a path to the resulting mp4. Raises on failure -- caller maps to a 4xx/5xx.
+
+    cookies_text, if given, is a real logged-in youtube.com session (Netscape cookies.txt
+    format, e.g. exported via the "Get cookies.txt LOCALLY" extension) -- written to a
+    request-scoped temp file, used once, and deleted immediately after. Never persisted,
+    never logged."""
     if not VIDEO_ID_RE.match(video_id):
         raise ValueError("invalid video_id")
     start = max(0, start_seconds - 0.5)  # small pre-roll so we don't cut mid-word
     end = start + max(3, trim_seconds) + 1
     out_dir = tempfile.mkdtemp(prefix="clip_")
     out_template = os.path.join(out_dir, "clip.%(ext)s")
-    cmd = [
-        "yt-dlp",
-        f"https://www.youtube.com/watch?v={video_id}",
-        "--download-sections", f"*{start}-{end}",
-        "-f", "bv*[height<=720]+ba/b[height<=720]",
-        "--merge-output-format", "mp4",
-        "-o", out_template,
-        "--no-playlist",
-        "--quiet",
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=150)
-    if result.returncode != 0:
-        raise RuntimeError(f"yt-dlp failed: {result.stderr[-500:]}")
-    produced = list(Path(out_dir).glob("clip.*"))
-    if not produced:
-        raise RuntimeError("yt-dlp produced no output file")
-    return str(produced[0])
+    cookies_path = None
+    try:
+        cmd = [
+            "yt-dlp",
+            f"https://www.youtube.com/watch?v={video_id}",
+            "--download-sections", f"*{start}-{end}",
+            "-f", "bv*[height<=720]+ba/b[height<=720]",
+            "--merge-output-format", "mp4",
+            "-o", out_template,
+            "--no-playlist",
+            "--quiet",
+        ]
+        if cookies_text.strip():
+            cookies_path = os.path.join(out_dir, "cookies.txt")
+            with open(cookies_path, "w") as f:
+                f.write(cookies_text)
+            cmd += ["--cookies", cookies_path]
+        else:
+            # No cookies given -- try the android-client workaround. Real limitation, not a
+            # guess: this alone did NOT clear YouTube's bot check from Cloud Run's IP range in
+            # testing (see TASKS.md) -- cookies are the real fix. Left in as a free first try.
+            cmd += ["--extractor-args", "youtube:player_client=android"]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=150)
+        if result.returncode != 0:
+            raise RuntimeError(f"yt-dlp failed: {result.stderr[-500:]}")
+        produced = list(Path(out_dir).glob("clip.*"))
+        produced = [p for p in produced if p.name != "cookies.txt"]
+        if not produced:
+            raise RuntimeError("yt-dlp produced no output file")
+        return str(produced[0])
+    finally:
+        if cookies_path and os.path.exists(cookies_path):
+            os.remove(cookies_path)
 
 
 @app.post("/api/ask")
@@ -419,10 +480,18 @@ async def refine(body: RefineBody):
     return JSONResponse(result)
 
 
+@app.get("/api/auth/config")
+async def auth_config():
+    return {"client_id": GOOGLE_OAUTH_CLIENT_ID}
+
+
 @app.post("/api/cut")
-async def cut(body: CutBody):
+async def cut(body: CutBody, x_google_id_token: str | None = Header(default=None)):
+    verify_owner(x_google_id_token)  # raises 401/403 if not an authorized owner
     try:
-        path = await asyncio.to_thread(cut_clip, body.video_id, body.start_seconds, body.trim_seconds)
+        path = await asyncio.to_thread(
+            cut_clip, body.video_id, body.start_seconds, body.trim_seconds, body.cookies_text
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except (RuntimeError, subprocess.TimeoutExpired) as e:

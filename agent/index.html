@@ -64,11 +64,38 @@
   #pool-search { margin-bottom: 0.7rem; }
   #pool-list { max-height: 340px; overflow-y: auto; }
   #scene-list.drop-target { outline: 2px dashed #d99a2b; outline-offset: 4px; }
+
+  #owner-panel { background: #241f18; border: 1px solid #3c352a; border-radius: 6px; padding: 0.9rem 1rem; margin: 1rem 0; font-size: 0.88rem; }
+  #owner-panel .status-line { display: flex; align-items: center; gap: 0.6rem; }
+  #owner-panel .signed-in { color: #8ba36a; }
+  #owner-panel .signed-out { color: #d9a56b; }
+  #cookie-toggle { color: #d99a2b; cursor: pointer; text-decoration: underline; font-size: 0.85rem; margin-top: 0.5rem; display: inline-block; }
+  #cookie-panel { display: none; margin-top: 0.6rem; }
+  #cookie-panel textarea { width: 100%; height: 90px; font-family: monospace; font-size: 0.78rem; }
+  #cookie-panel ol { margin: 0.4rem 0 0.6rem 1.2rem; padding: 0; font-size: 0.85rem; color: #b9b0a0; }
+  #cookie-status { font-size: 0.8rem; margin-top: 0.3rem; }
 </style>
 </head>
 <body>
   <h1>Archive Assistant</h1>
   <p class="dim">Ask anything about therawadvantage's or Johanna's Raw Foods' video catalog, or ask it to compile a themed video. Answered live from real transcripts, via Gemini + ClickHouse (official MCP server) -- every step below is a real query, not a canned animation.</p>
+
+  <div id="owner-panel">
+    <div class="status-line">
+      <span id="owner-status" class="signed-out">🔒 Downloading clips is restricted to this creator's own verified account.</span>
+      <span id="gsi-btn-wrap"></span>
+    </div>
+    <span id="cookie-toggle">Need to download a clip? Set up your YouTube cookies once ▾</span>
+    <div id="cookie-panel">
+      <ol>
+        <li>Install a cookie-export extension (e.g. "Get cookies.txt LOCALLY" for Chrome/Firefox).</li>
+        <li>While logged into YouTube, use it to export cookies for <code>youtube.com</code>.</li>
+        <li>Paste the exported file's contents below. It's sent with your download request only -- never stored, never logged.</li>
+      </ol>
+      <textarea id="cookie-text" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  ..."></textarea>
+      <div id="cookie-status" class="dim">Not set -- clip downloads will likely fail without this (YouTube blocks Cloud servers by default).</div>
+    </div>
+  </div>
   <form id="f">
     <input id="q" placeholder="e.g. compile a video about knife techniques" autofocus>
     <button id="go">Ask</button>
@@ -109,7 +136,53 @@
     </div>
   </div>
 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
+    // --- Owner sign-in (IP guard) + cookie setup for real clip downloads ---
+    let googleIdToken = null;
+
+    function onGoogleSignIn(response) {
+      googleIdToken = response.credential;
+      // Decode just the email for display -- the SERVER re-verifies the real token on every
+      // /api/cut call, this is only for the UI label, never trusted for authorization.
+      try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        document.getElementById('owner-status').textContent = `✅ Signed in as ${payload.email}`;
+        document.getElementById('owner-status').className = 'signed-in';
+      } catch (e) {
+        document.getElementById('owner-status').textContent = '✅ Signed in';
+      }
+    }
+    window.onGoogleSignIn = onGoogleSignIn;
+
+    fetch('/api/auth/config').then(r => r.json()).then(({ client_id }) => {
+      if (!client_id || !window.google) {
+        setTimeout(() => { if (window.google) initGsi(client_id); }, 500);
+        return;
+      }
+      initGsi(client_id);
+    });
+    function initGsi(clientId) {
+      if (!clientId || !window.google?.accounts?.id) return;
+      google.accounts.id.initialize({ client_id: clientId, callback: onGoogleSignIn });
+      google.accounts.id.renderButton(document.getElementById('gsi-btn-wrap'), { theme: 'outline', size: 'small' });
+    }
+
+    document.getElementById('cookie-toggle').addEventListener('click', () => {
+      const panel = document.getElementById('cookie-panel');
+      panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    });
+    document.getElementById('cookie-text').addEventListener('input', (e) => {
+      const status = document.getElementById('cookie-status');
+      if (e.target.value.trim()) {
+        status.textContent = 'Cookies set for this session -- will be sent with your next download.';
+        status.className = '';
+      } else {
+        status.textContent = 'Not set -- clip downloads will likely fail without this (YouTube blocks Cloud servers by default).';
+        status.className = 'dim';
+      }
+    });
+
     const f = document.getElementById('f');
     const goBtn = document.getElementById('go');
     const logWrap = document.getElementById('log-wrap');
@@ -230,16 +303,22 @@
     }
 
     async function downloadCut(scene, btn) {
+      if (!googleIdToken) {
+        alert('Sign in with Google first (top of the page) -- clip downloads are restricted to this creator\'s own verified account.');
+        return;
+      }
       const original = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Cutting (~20-40s)...';
       try {
+        const cookiesText = document.getElementById('cookie-text').value;
         const res = await fetch('/api/cut', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Google-Id-Token': googleIdToken },
           body: JSON.stringify({
             video_id: scene.video_id, start_seconds: scene.start_seconds,
             trim_seconds: scene.trim_seconds, title: scene.video_title,
+            cookies_text: cookiesText,
           }),
         });
         if (!res.ok) {

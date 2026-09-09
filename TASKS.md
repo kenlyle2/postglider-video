@@ -2,6 +2,36 @@
 
 ---
 
+## Finding 2026-09-09 — `gcloud run deploy --set-env-vars` REPLACES the whole env var set, silently
+## breaking a previously-working deploy
+
+Deploying the OAuth/download gate, ran `gcloud run deploy ... --set-env-vars="^##^GOOGLE_CLIENT_ID=...##ALLOWED_DOWNLOAD_EMAILS=..."`
+to add two new env vars. The deploy reported success ("serving 100 percent of traffic") and the
+new vars were present -- but `CLICKHOUSE_HOST`/`CLICKHOUSE_PORT`/`CLICKHOUSE_USER`/
+`CLICKHOUSE_SECURE` (set in an earlier, separate deploy) silently vanished, because
+**`--set-env-vars` replaces the entire env var set, it does not merge with what's already
+deployed** -- unlike `--set-secrets`, which is additive. Real user-facing failure: every
+`/api/ask` request appeared to hang (a live Playwright browser test timed out waiting 100s for
+the storyboard to render), and a direct `curl -N` on the streaming endpoint showed the connection
+close after only 4.6s. Root cause found in Cloud Run logs, not guessed: `KeyError:
+'CLICKHOUSE_HOST'` inside `clickhouse_mcp.py`, thrown mid-stream after the first status event had
+already been sent (which is why it looked like a slow hang rather than an immediate error -- the
+SSE response had already started, so FastAPI/Starlette couldn't send a clean error status, it just
+killed the connection).
+
+**Fix**: use `gcloud run services update --update-env-vars=...` (merges) instead of `gcloud run
+deploy --set-env-vars=...` (replaces) whenever adding env vars to a service that already has
+others configured from a prior deploy. If `--set-env-vars` must be used (e.g. as part of a full
+`gcloud run deploy`), always pass the COMPLETE current set, not just the new additions.
+
+**Verification habit that caught this**: a real headless-browser (Playwright) end-to-end check
+against the live URL caught a failure mode a bare `curl` health-check on `/` would have missed
+entirely (the index page and `/api/auth/config` both returned 200 fine -- only the actual
+multi-step agent flow touched the broken env var). Worth keeping this kind of full-flow browser
+check as the real pre-demo verification, not just a 200-status spot check.
+
+---
+
 ## Finding 2026-09-09 — Pictory has no fade-in/fade-out duration control, no inline script directives
 
 While building the Agentic Cinema hackathon agent's "export as script" feature (paste the

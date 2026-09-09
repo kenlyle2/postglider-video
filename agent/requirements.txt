@@ -6,3 +6,4 @@ google-genai
 mcp
 mcp-clickhouse
 yt-dlp
+google-auth

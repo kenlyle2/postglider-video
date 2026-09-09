@@ -89,19 +89,35 @@ back to an exact timestamp.*
 
 ---
 
-## Demo video shot list (≤3 min, script around what's live)
+## Demo video shot list (≤3 min, timed to leave a real buffer)
 
-1. (10s) One sentence on the problem: hundreds of real videos, none of it searchable.
-2. (30s) Ask a plain question live — show the real-time step log, then a real cited answer.
-3. (15s) Ask an intentionally obscure question that returns 0 results — the honest refusal.
-   Say out loud why this matters (no hallucinated quotes).
-4. (60s) "Compile a video about X" — show the streaming steps collapse into the accordion, then
-   the editable storyboard: drag a scene, exclude one, open the optional-inserts tray and add one,
-   search the full pool for something specific and drag it in.
-5. (30s) Export as script (mention the Pictory scene-setting note), and/or the real clip
-   download if that's fixed in time.
-6. (15s) Close: real repo, real ClickHouse Cloud service, real Gemini calls, tie back to
-   PostGlider's existing "reuse what you have" principle and the planned product-line future.
+Record in this order against the LIVE URL. Before recording, re-verify each beat still works --
+don't trust that a fix from earlier in the day still holds (see "verify live immediately before
+recording," below).
+
+| Time | Beat | What to say / show |
+|---|---|---|
+| 0:00-0:08 | Problem | "Chris has ~700 real videos on YouTube. Almost none of it is findable -- not by him, not by his audience." |
+| 0:08-0:33 | Real search | Type a real question ("what has Chris said about curry?"). Let the step log run visibly, then show the cited, timestamped answer. Say: "Every quote is real, pulled live via the official ClickHouse MCP server -- not generated." |
+| 0:33-0:45 | Honest refusal | Ask something you know isn't in the corpus ("red curry"). Point out the 0-result, non-hallucinated answer. "It never makes something up just to have an answer." |
+| 0:45-1:40 | Compile + edit | "Compile a video about knife techniques." Let the log collapse to the accordion, then show the storyboard: drag a scene to reorder, uncheck one to exclude, open Optional Inserts and add one, search the full result pool for something specific and drag it into the arc. "This isn't one fixed answer -- it's a real editable draft." |
+| 1:40-2:10 | Ownership gate + real download | Show the sign-in-restricted download button, sign in with Google, click "Cut & download" on a scene, show the real mp4 land. "Only the creator's own verified account can pull clips -- this is a rights guard, not an open scraper." |
+| 2:10-2:35 | Script export | Click Export as Script, show the Pictory-ready text + the scene-setting callout. "For full video assembly, hand this straight to Pictory -- or any editor." |
+| 2:35-2:50 | Close | "Real ClickHouse Cloud, real Gemini 3.8 Flash, real repo, real prospects already lined up -- and this is the same 'use what you already have' principle already shipping in PostGlider's core product today." |
+
+**Total: ~2:50**, leaving a ~10s buffer for pacing. If something runs long, cut from the compile/edit
+beat (1:40 is the most compressible) before cutting the honest-refusal or ownership-gate beats --
+those two carry the most judging-criteria weight per scene-second (trust + rights-safety).
+
+**Before recording, verify live (don't assume yesterday's/this-morning's fix still holds):**
+- [ ] Plain question returns a real cited answer
+- [ ] The refusal-case question actually returns 0 rows (recheck the exact phrase -- corpus can
+      shift if re-indexed)
+- [ ] Compile produces scenes + optional_inserts + a non-empty pool
+- [ ] Google Sign-In button renders and completes (needs the Cloud Run origin authorized on the
+      OAuth Client ID -- one-time Console step, confirm it's still there)
+- [ ] `/api/cut` actually returns a playable mp4 with cookies pasted in (YouTube's bot-check on
+      Cloud Run's IP range is the known failure point -- see TASKS.md)
 
 ---
 
