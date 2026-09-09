@@ -235,6 +235,26 @@ def _is_compilation_request(question: str) -> bool:
     return any(trigger in q for trigger in COMPILATION_TRIGGERS)
 
 
+GEMINI_CALL_TIMEOUT = 60  # seconds
+
+
+async def generate_with_timeout(**kwargs):
+    """client.models.generate_content() is a SYNCHRONOUS call. Called directly inside an async
+    function, it blocks the entire event loop for its full duration -- if a single call is ever
+    slow (network hiccup, Google-side slowness, an internal SDK retry), the whole server hangs
+    for every request, not just this one, with no error and no log output (confirmed live,
+    2026-09-09: a real request went completely silent for 4+ minutes with zero log lines after
+    the last ClickHouse query -- root cause was this exact blocking call, not a slow model).
+    Fixed by running it in a thread (so it can't block the loop) with an explicit timeout (so a
+    genuinely hung call fails loudly instead of hanging forever)."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(client.models.generate_content, **kwargs), timeout=GEMINI_CALL_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        raise RuntimeError(f"Gemini call timed out after {GEMINI_CALL_TIMEOUT}s")
+
+
 def _row_count(mcp_result_text: str) -> str:
     """Best-effort extraction of a row count from mcp-clickhouse's JSON result text,
     for a human-readable status line -- falls back gracefully if the shape changes."""
@@ -290,14 +310,18 @@ async def ask_agent_stream(question: str):
     for step in range(8):  # bounded tool-call loop -- 3.8-flash is more deliberate, often
         # does a broad query then a narrower follow-up before finalizing; give it room
         yield {"type": "status", "text": "Thinking..." if step == 0 else "Reviewing results, deciding next step..."}
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                tools=tools,
-            ),
-        )
+        try:
+            response = await generate_with_timeout(
+                model=MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    tools=tools,
+                ),
+            )
+        except RuntimeError as e:
+            yield {"type": "final", "answer": f"Sorry, something went wrong talking to Gemini: {e}", "sql": last_sql}
+            return
         candidate = response.candidates[0]
         contents.append(candidate.content)
 
@@ -378,7 +402,7 @@ url, start_seconds, or video_id -- those are real and already fixed by the human
 Current order:
 {json.dumps({"arc_summary": arc_summary, "scenes": scenes}, indent=2)}"""
 
-    response = client.models.generate_content(
+    response = await generate_with_timeout(
         model=MODEL,
         contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
         config=types.GenerateContentConfig(
@@ -476,7 +500,10 @@ async def ask(body: AskBody):
 
 @app.post("/api/refine")
 async def refine(body: RefineBody):
-    result = await refine_arc(body.arc_summary, body.scenes, body.note)
+    try:
+        result = await refine_arc(body.arc_summary, body.scenes, body.note)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     return JSONResponse(result)
 
 

@@ -2,6 +2,43 @@
 
 ---
 
+## Finding + fix 2026-09-09 — a synchronous Gemini call, unwrapped, froze the ENTIRE server on
+## any slow response, not just the one request
+
+Ken tested a live "knife techniques" compile while signed in with cookies set. The request went
+completely silent for 4+ minutes -- not a slow response, total silence, zero log lines after the
+5th ClickHouse query returned. First checked (and ruled out): a stale `KeyError: 'CLICKHOUSE_HOST'`
+that showed up in a `severity>=WARNING` log query turned out to be from an OLD, already-fixed
+revision (confirmed by filtering logs with an explicit `timestamp>=` bound around the actual
+request window -- nothing there at all, not even the stale error).
+
+**Real root cause**: `client.models.generate_content(...)` (google-genai) is a **synchronous**
+call. It was being called directly inside `async def ask_agent_stream(...)` and
+`async def refine_arc(...)`, never wrapped in `asyncio.to_thread` the way the ClickHouse MCP call
+and the yt-dlp subprocess call already were. A synchronous call made directly inside an `async`
+function blocks Python's single-threaded event loop for its ENTIRE duration -- not just that one
+request, the whole server, every concurrent request, including the ability to emit further log
+lines. This had been silently "working" because Gemini calls are usually fast (a few seconds), so
+the blocking was never long enough to notice -- until one call was slow (network hiccup, an
+internal SDK retry, real Google-side latency), at which point the entire app appeared to hang with
+zero diagnostic output, which is exactly what made it look mysterious at first.
+
+**Fix**: new `generate_with_timeout()` wraps every `generate_content` call in
+`asyncio.to_thread(...)` (so it can't block the loop) plus `asyncio.wait_for(..., timeout=60)` (so
+a genuinely hung call fails loudly with a clear message instead of hanging forever). **Verified
+the actual mechanism, not just "it didn't crash this time"**: fired a slow compile request, then
+a fast unrelated request while the slow one was still in flight -- before the fix this would have
+queued behind the slow one; after the fix the fast request returned in 8ms while the slow one was
+still running 40+ seconds later.
+
+**Lesson for any future call added to this codebase**: every call to a synchronous SDK/library
+inside an `async def` here must go through `asyncio.to_thread` (or be a genuinely async client).
+This is the same category of bug this workspace's own `avoid_fake_sync_hacks`/async-discipline
+conventions exist to prevent, just newly relevant because `agent/app.py` is a from-scratch Python
+service, not an extension of the existing Node/TS codebase where this pattern is already enforced.
+
+---
+
 ## Finding 2026-09-09 — `gcloud run deploy --set-env-vars` REPLACES the whole env var set, silently
 ## breaking a previously-working deploy
 
