@@ -32,3 +32,29 @@ never controllable, so don't design any feature around it.
 Pictory's "One scene per line break" setting exactly — the UI now tells the user to pick that
 setting explicitly (not "per sentence," since several curated quotes are multi-sentence and
 should stay as one scene each).
+
+---
+
+## Finding 2026-09-09 — Pictory's "Idea to Video" chatbot cannot reference our existing source
+## clips at all; final assembly has to be done manually
+
+Live-tested (Ken, in the real Pictory UI) pasting the agent's exported script into "Idea to
+Video." The chatbot has no way to point a scene at one of our actual source clips (the real
+YouTube video + timestamp the agent picked) — it only generates/searches its own stock footage or
+AI visuals for whatever narration text you give it. This matches what the docs review already
+found (`visualUrl` — the field that *would* let a scene use our own hosted clip — only exists in
+the paid storyboard API's JSON body, not in the "Idea to Video" script-paste UI at all), just
+confirmed live end-to-end instead of by reading docs alone.
+
+**Net effect, and why this is fine, not a setback:** final video assembly (pulling each real
+clip, trimming to the agent's suggested window, ordering, applying the suggested transition) has
+to be done by a human in Pictory's manual editor (or any editor) — there is no path, free or paid
+without the storyboard API, to hand Pictory a list of "use THIS clip at THIS timestamp" instructions
+directly. This was already the plan (see the earlier finding above and `research/decisions.md` —
+Pictory's API was deliberately not purchased for this hackathon). It also reinforces the honest
+framing for the submission: **the agent does the hard, real part** — real-time ClickHouse
+retrieval via the official MCP server, narrative-arc sequencing, human-editable storyboard, and a
+correctly-formatted script/citation handoff — and a human does final creative assembly. That's a
+credible, coherent product story (a real editor's actual workflow: AI does research/pre-editing,
+human finishes), not a claim that the whole pipeline is automated end-to-end. Ken's own framing:
+"the app is still doing 90% of the work."
