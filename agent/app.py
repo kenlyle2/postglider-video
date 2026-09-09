@@ -9,11 +9,14 @@ the real source video + timestamp -- it never invents a quote.
 import asyncio
 import json
 import os
+import re
+import subprocess
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -74,6 +77,25 @@ SCENE_SCHEMA = {
     ],
 }
 
+INSERT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "video_id": {"type": "string"},
+        "video_title": {"type": "string"},
+        "url": {"type": "string"},
+        "start_seconds": {"type": "number"},
+        "trim_seconds": {"type": "number"},
+        "quote": {"type": "string"},
+        "why_optional": {
+            "type": "string",
+            "description": "Why this is a good OPTIONAL addition -- a real, relevant segment "
+            "that didn't make the primary arc (redundant with a chosen scene, a fun tangent, "
+            "a deeper cut for viewers who want more) but is worth offering, not a core beat.",
+        },
+    },
+    "required": ["video_id", "video_title", "url", "start_seconds", "trim_seconds", "quote", "why_optional"],
+}
+
 PRESENT_ARC_FN = types.FunctionDeclaration(
     name="present_arc",
     description=(
@@ -86,6 +108,14 @@ PRESENT_ARC_FN = types.FunctionDeclaration(
         "properties": {
             "arc_summary": {"type": "string", "description": "One-line summary of the overall arc."},
             "scenes": {"type": "array", "items": SCENE_SCHEMA},
+            "optional_inserts": {
+                "type": "array",
+                "items": INSERT_SCHEMA,
+                "description": "2-4 real segments from your query results that are relevant but "
+                "didn't earn a place in the primary arc -- offered as opt-in bonus material the "
+                "human can drag in if they want a longer or different cut. Leave empty if nothing "
+                "genuinely qualifies; don't pad this just to fill it.",
+            },
             "insufficient_material_note": {
                 "type": "string",
                 "description": "Set ONLY if there isn't enough real material for a coherent arc -- "
@@ -139,6 +169,11 @@ TWO MODES:
    call present_arc with an empty scenes list and fill insufficient_material_note honestly
    rather than forcing a weak structure.
 
+   Also fill optional_inserts with 2-4 REAL segments from your query results that are relevant
+   to the theme but didn't earn a primary-arc slot (near-duplicates of a chosen scene, a fun
+   tangent, a deeper cut) -- these are offered to the human as opt-in bonus material, not part
+   of the core sequence. Leave it empty if nothing genuinely qualifies.
+
 EFFICIENCY (applies to both modes): run ONE broad query first. Only run a second query if
 the first came back with too few relevant rows (<10) to work with, or the user named a
 specific channel/creator you need to filter to. Do NOT: re-run a count-only query after
@@ -175,6 +210,23 @@ def _row_count(mcp_result_text: str) -> str:
     return "a result"
 
 
+REQUIRED_SEGMENT_COLS = {"video_id", "title", "url", "start_seconds", "text"}
+
+
+def _extract_segments(mcp_result_text: str) -> list[dict]:
+    """Pull real segment rows out of an mcp-clickhouse JSON result, for the "unused pool" --
+    only keeps rows that actually look like video_segments rows (skips count()/DESCRIBE/etc.
+    results, which share no schema with a real segment)."""
+    try:
+        parsed = json.loads(mcp_result_text)
+        cols, rows = parsed.get("columns", []), parsed.get("rows", [])
+        if not REQUIRED_SEGMENT_COLS.issubset(set(cols)):
+            return []
+        return [dict(zip(cols, row)) for row in rows]
+    except Exception:
+        return []
+
+
 async def ask_agent_stream(question: str):
     """Async generator yielding real progress events as the agent works, then a
     final event. Event shapes: {"type": "status", "text": ...},
@@ -196,6 +248,7 @@ async def ask_agent_stream(question: str):
 
     tools = [COMPILATION_TOOL if compiling else QUERY_TOOL]
     contents = [types.Content(role="user", parts=[types.Part(text=question)])]
+    pool: dict[tuple, dict] = {}  # every real segment seen this request, keyed by (video_id, start_seconds)
     for step in range(8):  # bounded tool-call loop -- 3.8-flash is more deliberate, often
         # does a broad query then a narrower follow-up before finalizing; give it room
         yield {"type": "status", "text": "Thinking..." if step == 0 else "Reviewing results, deciding next step..."}
@@ -220,10 +273,15 @@ async def ask_agent_stream(question: str):
         present_call = next((fc for fc in function_calls if fc.name == "present_arc"), None)
         if present_call is not None:
             args = present_call.args
+            chosen_keys = {(s.get("video_id"), s.get("start_seconds")) for s in args.get("scenes", [])}
+            chosen_keys |= {(s.get("video_id"), s.get("start_seconds")) for s in args.get("optional_inserts", [])}
+            leftover = [v for k, v in pool.items() if k not in chosen_keys]
             yield {
                 "type": "arc",
                 "arc_summary": args.get("arc_summary", ""),
                 "scenes": args.get("scenes", []),
+                "optional_inserts": args.get("optional_inserts", []),
+                "pool": leftover,
                 "note": args.get("insufficient_material_note"),
             }
             return
@@ -235,6 +293,9 @@ async def ask_agent_stream(question: str):
             yield {"type": "status", "text": f"Querying ClickHouse (via mcp-clickhouse): {sql}"}
             result = await run_select_query(sql)
             yield {"type": "status", "text": f"-> got {_row_count(result)} back."}
+            for seg in _extract_segments(result):
+                key = (seg.get("video_id"), seg.get("start_seconds"))
+                pool[key] = seg
             parts.append(
                 types.Part(
                     function_response=types.FunctionResponse(
@@ -303,6 +364,49 @@ class RefineBody(BaseModel):
     note: str = ""
 
 
+class CutBody(BaseModel):
+    video_id: str
+    start_seconds: float
+    trim_seconds: float = 12
+    title: str = "clip"
+
+
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,15}$")
+
+
+def _safe_filename(title: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", title)[:60] or "clip"
+
+
+def cut_clip(video_id: str, start_seconds: float, trim_seconds: float) -> str:
+    """Downloads just the requested slice of a real, public YouTube video (yt-dlp's
+    --download-sections fetches only that byte range where the host supports it) and
+    returns a path to the resulting mp4. Raises on failure -- caller maps to a 4xx/5xx."""
+    if not VIDEO_ID_RE.match(video_id):
+        raise ValueError("invalid video_id")
+    start = max(0, start_seconds - 0.5)  # small pre-roll so we don't cut mid-word
+    end = start + max(3, trim_seconds) + 1
+    out_dir = tempfile.mkdtemp(prefix="clip_")
+    out_template = os.path.join(out_dir, "clip.%(ext)s")
+    cmd = [
+        "yt-dlp",
+        f"https://www.youtube.com/watch?v={video_id}",
+        "--download-sections", f"*{start}-{end}",
+        "-f", "bv*[height<=720]+ba/b[height<=720]",
+        "--merge-output-format", "mp4",
+        "-o", out_template,
+        "--no-playlist",
+        "--quiet",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=150)
+    if result.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed: {result.stderr[-500:]}")
+    produced = list(Path(out_dir).glob("clip.*"))
+    if not produced:
+        raise RuntimeError("yt-dlp produced no output file")
+    return str(produced[0])
+
+
 @app.post("/api/ask")
 async def ask(body: AskBody):
     result = await ask_agent(body.question)
@@ -313,6 +417,19 @@ async def ask(body: AskBody):
 async def refine(body: RefineBody):
     result = await refine_arc(body.arc_summary, body.scenes, body.note)
     return JSONResponse(result)
+
+
+@app.post("/api/cut")
+async def cut(body: CutBody):
+    try:
+        path = await asyncio.to_thread(cut_clip, body.video_id, body.start_seconds, body.trim_seconds)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        raise HTTPException(status_code=502, detail=f"Could not cut this clip: {e}")
+    ext = Path(path).suffix or ".mp4"
+    filename = f"{_safe_filename(body.title)}_{int(body.start_seconds)}s{ext}"
+    return FileResponse(path, media_type="video/mp4", filename=filename)
 
 
 @app.post("/api/ask/stream")

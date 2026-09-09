@@ -5,3 +5,4 @@ python-dotenv
 google-genai
 mcp
 mcp-clickhouse
+yt-dlp

@@ -11,9 +11,18 @@
   input, textarea { flex: 1; padding: 0.7rem 0.9rem; border-radius: 5px; border: 1px solid #3c352a; background: #241f18; color: #f2ece0; font-size: 1rem; font-family: inherit; }
   button { padding: 0.7rem 1.2rem; border-radius: 5px; border: none; background: #d99a2b; color: #1a1712; font-weight: 600; cursor: pointer; }
   button.secondary { background: #3c352a; color: #f2ece0; }
+  button.small { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
   button:disabled { opacity: 0.5; cursor: default; }
-  #log { font-family: ui-monospace, monospace; font-size: 0.82rem; color: #8ba36a; background: #1c1912; border: 1px solid #3c352a; border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 1rem; max-height: 180px; overflow-y: auto; display: none; }
-  #log div { padding: 0.15rem 0; white-space: pre-wrap; word-break: break-word; }
+
+  /* Log: full and prominent while running, accordion-collapsed once done */
+  #log-wrap { margin-bottom: 1rem; }
+  #log-header { display: none; align-items: center; gap: 0.5rem; cursor: pointer; color: #8ba36a; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 0.5rem 0.2rem; user-select: none; }
+  #log-header .chev { transition: transform 0.15s; display: inline-block; }
+  #log-header.expanded .chev { transform: rotate(90deg); }
+  #log { font-family: ui-monospace, monospace; font-size: 0.85rem; color: #8ba36a; background: #1c1912; border: 1px solid #3c352a; border-radius: 6px; padding: 1rem 1.1rem; max-height: 60vh; overflow-y: auto; display: none; transition: max-height 0.2s; }
+  #log.running { max-height: 60vh; }
+  #log.collapsed { max-height: 0; padding: 0 1.1rem; border: none; overflow: hidden; }
+  #log div { padding: 0.2rem 0; white-space: pre-wrap; word-break: break-word; }
   #log div.step-done { color: #6b8a4a; }
   #answer { white-space: pre-wrap; line-height: 1.55; background: #241f18; border: 1px solid #3c352a; border-radius: 6px; padding: 1rem 1.2rem; min-height: 3rem; }
   .spinner { display: inline-block; width: 0.8em; height: 0.8em; border: 2px solid #3c352a; border-top-color: #d99a2b; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.5em; vertical-align: -1px; }
@@ -30,6 +39,8 @@
   .scene-card .body { flex: 1; }
   .scene-card .title-row { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; }
   .scene-card a { color: #f2ece0; }
+  .ts-link { display: inline-block; background: #3c352a; color: #d99a2b !important; font-family: monospace; font-size: 0.78rem; padding: 0.1rem 0.4rem; border-radius: 3px; text-decoration: none; }
+  .ts-link:hover { background: #4a4130; }
   .scene-card .trim { color: #8ba36a; font-size: 0.78rem; font-family: monospace; }
   .scene-card .quote { font-style: italic; color: #d9cfba; margin: 0.3rem 0; }
   .scene-card .reason { color: #b9b0a0; font-size: 0.88rem; }
@@ -41,6 +52,18 @@
   #script-box textarea { width: 100%; height: 220px; font-family: monospace; font-size: 0.85rem; }
   #sources { font-size: 0.82rem; color: #8ba36a; margin-top: 0.5rem; }
   #sources div { margin-bottom: 0.2rem; }
+
+  .extra-section { margin-top: 1.6rem; border-top: 1px solid #3c352a; padding-top: 1.2rem; }
+  .extra-section h2 { font-size: 1rem; color: #d99a2b; margin: 0 0 0.4rem; }
+  .extra-section .dim { margin-bottom: 0.8rem; }
+  .insert-card, .pool-card { display: flex; gap: 0.6rem; align-items: flex-start; background: #1c1912; border: 1px solid #3c352a; border-radius: 6px; padding: 0.7rem 0.9rem; margin-bottom: 0.5rem; }
+  .insert-card .body, .pool-card .body { flex: 1; font-size: 0.88rem; }
+  .insert-card .why { color: #8ba36a; font-size: 0.82rem; margin-top: 0.2rem; }
+  .pool-card { cursor: grab; }
+  .pool-card.dragging { opacity: 0.4; }
+  #pool-search { margin-bottom: 0.7rem; }
+  #pool-list { max-height: 340px; overflow-y: auto; }
+  #scene-list.drop-target { outline: 2px dashed #d99a2b; outline-offset: 4px; }
 </style>
 </head>
 <body>
@@ -50,7 +73,11 @@
     <input id="q" placeholder="e.g. compile a video about knife techniques" autofocus>
     <button id="go">Ask</button>
   </form>
-  <div id="log"></div>
+
+  <div id="log-wrap">
+    <div id="log-header"><span class="chev">▶</span><span id="log-summary"></span></div>
+    <div id="log"></div>
+  </div>
   <div id="answer">Ask a question above.</div>
 
   <div id="storyboard">
@@ -67,11 +94,27 @@
       <button id="copy-btn" style="margin-top:0.5rem;">Copy to clipboard</button>
       <div id="sources"></div>
     </div>
+
+    <div id="inserts-section" class="extra-section" style="display:none;">
+      <h2>Optional inserts</h2>
+      <p class="dim">Real segments the agent found relevant but left out of the core arc -- add one in if you want a longer or different cut.</p>
+      <div id="inserts-list"></div>
+    </div>
+
+    <div id="pool-section" class="extra-section" style="display:none;">
+      <h2>Everything else the agent looked at</h2>
+      <p class="dim">Every real segment fetched this run, whether it made the cut or not. Search it yourself -- e.g. if you know there's a guacamole mention in here somewhere, look for it -- and drag any card straight into the storyboard above.</p>
+      <input id="pool-search" placeholder="search the full result pool...">
+      <div id="pool-list"></div>
+    </div>
   </div>
 
   <script>
     const f = document.getElementById('f');
     const goBtn = document.getElementById('go');
+    const logWrap = document.getElementById('log-wrap');
+    const logHeader = document.getElementById('log-header');
+    const logSummary = document.getElementById('log-summary');
     const logEl = document.getElementById('log');
     const answerEl = document.getElementById('answer');
     const storyboardEl = document.getElementById('storyboard');
@@ -80,6 +123,8 @@
     const listEl = document.getElementById('scene-list');
 
     let currentScenes = []; // live editable state
+    let stepCount = 0;
+    let runStart = 0;
 
     function addLogLine(text) {
       const prev = logEl.querySelector('div.current');
@@ -89,14 +134,38 @@
       line.innerHTML = '<span class="spinner"></span>' + text;
       logEl.appendChild(line);
       logEl.scrollTop = logEl.scrollHeight;
+      stepCount++;
     }
 
-    function finishLog() {
+    function collapseLog() {
       const last = logEl.querySelector('div.current');
       if (last) { last.classList.remove('current'); last.classList.add('step-done'); last.querySelector('.spinner')?.remove(); }
+      const elapsed = ((Date.now() - runStart) / 1000).toFixed(0);
+      logSummary.textContent = `${stepCount} real steps, ${elapsed}s -- click to expand`;
+      logEl.classList.remove('running');
+      logEl.classList.add('collapsed');
+      logHeader.style.display = 'flex';
+      logHeader.classList.remove('expanded');
     }
 
+    logHeader.addEventListener('click', () => {
+      const expanded = logHeader.classList.toggle('expanded');
+      logEl.classList.toggle('collapsed', !expanded);
+      logEl.classList.toggle('running', expanded);
+    });
+
     const TRANSITIONS = ["hard cut", "cross-dissolve", "text card", "none (last scene)"];
+
+    function ytLink(url, startSeconds) {
+      return `${url}${url.includes('?') ? '&' : '?'}t=${Math.round(startSeconds)}s`;
+    }
+    function mmss(seconds) {
+      const s = Math.round(seconds);
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+    function tsLink(url, startSeconds) {
+      return `<a href="${ytLink(url, startSeconds)}" target="_blank" class="ts-link">▶ ${mmss(startSeconds)}</a>`;
+    }
 
     function renderScenes() {
       listEl.innerHTML = '';
@@ -106,18 +175,19 @@
         li.draggable = true;
         li.dataset.idx = i;
 
-        const link = `${scene.url}${scene.url.includes('?') ? '&' : '?'}t=${Math.round(scene.start_seconds)}s`;
         li.innerHTML = `
           <span class="handle" title="Drag to reorder">⠿</span>
           <input type="checkbox" class="include-cb" ${scene._excluded ? '' : 'checked'} title="Include in compilation">
           <span class="num">${i + 1}</span>
           <div class="body">
             <div class="title-row">
-              <a href="${link}" target="_blank">${scene.video_title}</a>
-              <span class="trim">${Math.round(scene.start_seconds)}s, ~${Math.round(scene.trim_seconds)}s</span>
+              <span>${scene.video_title}</span>
+              ${tsLink(scene.url, scene.start_seconds)}
+              <span class="trim">~${Math.round(scene.trim_seconds)}s clip</span>
             </div>
             <div class="quote">"${scene.quote}"</div>
-            <div class="reason">${scene.reason}</div>
+            <div class="reason">${scene.reason || ''}</div>
+            <button class="small secondary cut-btn" style="margin-top:0.5rem;">⬇ Cut &amp; download clip</button>
           </div>`;
 
         li.querySelector('.include-cb').addEventListener('change', (e) => {
@@ -125,10 +195,13 @@
           li.classList.toggle('excluded', currentScenes[i]._excluded);
         });
 
-        li.addEventListener('dragstart', () => li.classList.add('dragging'));
-        li.addEventListener('dragend', () => { li.classList.remove('dragging'); syncOrderFromDOM(); });
+        li.querySelector('.cut-btn').addEventListener('click', (e) => downloadCut(scene, e.target));
+
+        li.addEventListener('dragstart', (e) => { li.classList.add('dragging'); e.dataTransfer.setData('text/x-scene-reorder', '1'); });
+        li.addEventListener('dragend', () => { li.classList.remove('dragging'); listEl.classList.remove('drop-target'); syncOrderFromDOM(); });
         li.addEventListener('dragover', (e) => {
           e.preventDefault();
+          listEl.classList.add('drop-target');
           const dragging = listEl.querySelector('.dragging');
           if (!dragging || dragging === li) return;
           const rect = li.getBoundingClientRect();
@@ -138,25 +211,144 @@
 
         listEl.appendChild(li);
 
-        if (i < currentScenes.length - 1 || true) {
-          const trow = document.createElement('div');
-          trow.className = 'transition-row';
-          const opts = TRANSITIONS.map(t => `<option value="${t}" ${t === scene.transition_to_next ? 'selected' : ''}>${t}</option>`).join('');
-          trow.innerHTML = `↳ transition: <select data-idx="${i}">${opts}</select> <span class="dim">${scene.transition_reason || ''}</span>`;
-          trow.querySelector('select').addEventListener('change', (e) => {
-            currentScenes[i].transition_to_next = e.target.value;
-          });
-          listEl.appendChild(trow);
-        }
+        const trow = document.createElement('div');
+        trow.className = 'transition-row';
+        const opts = TRANSITIONS.map(t => `<option value="${t}" ${t === scene.transition_to_next ? 'selected' : ''}>${t}</option>`).join('');
+        trow.innerHTML = `↳ transition: <select data-idx="${i}">${opts}</select> <span class="dim">${scene.transition_reason || ''}</span>`;
+        trow.querySelector('select').addEventListener('change', (e) => {
+          currentScenes[i].transition_to_next = e.target.value;
+        });
+        listEl.appendChild(trow);
       });
     }
 
     function syncOrderFromDOM() {
       const cards = [...listEl.querySelectorAll('.scene-card')];
       const byIdx = currentScenes.slice();
-      currentScenes = cards.map(c => byIdx[parseInt(c.dataset.idx)]);
+      currentScenes = cards.map(c => byIdx[parseInt(c.dataset.idx)]).filter(Boolean);
       renderScenes();
     }
+
+    async function downloadCut(scene, btn) {
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Cutting (~20-40s)...';
+      try {
+        const res = await fetch('/api/cut', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: scene.video_id, start_seconds: scene.start_seconds,
+            trim_seconds: scene.trim_seconds, title: scene.video_title,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const cd = res.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename="([^"]+)"/);
+        a.href = url;
+        a.download = match ? match[1] : 'clip.mp4';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('Could not cut this clip: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+
+    function segmentToScene(seg, extraReason) {
+      return {
+        video_id: seg.video_id, video_title: seg.title, url: seg.url,
+        start_seconds: seg.start_seconds, trim_seconds: 12,
+        quote: seg.text, reason: extraReason || 'Manually added by the editor.',
+        transition_to_next: 'hard cut', transition_reason: '',
+      };
+    }
+
+    function addSegmentToScenes(seg, extraReason) {
+      currentScenes.push(segmentToScene(seg, extraReason));
+      renderScenes();
+    }
+
+    // Allow dropping a pool/insert card (dragged by reference, see below) onto the scene list
+    listEl.addEventListener('dragover', (e) => { if (window.__dragSeg) { e.preventDefault(); listEl.classList.add('drop-target'); } });
+    listEl.addEventListener('drop', (e) => {
+      if (window.__dragSeg) {
+        e.preventDefault();
+        addSegmentToScenes(window.__dragSeg, window.__dragReason);
+        window.__dragSeg = null;
+        listEl.classList.remove('drop-target');
+      }
+    });
+
+    function renderInserts(inserts) {
+      const section = document.getElementById('inserts-section');
+      const list = document.getElementById('inserts-list');
+      list.innerHTML = '';
+      if (!inserts || inserts.length === 0) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      inserts.forEach((ins) => {
+        const div = document.createElement('div');
+        div.className = 'insert-card';
+        div.draggable = true;
+        div.innerHTML = `
+          <div class="body">
+            <span>${ins.video_title}</span> ${tsLink(ins.url, ins.start_seconds)}
+            <div class="quote">"${ins.quote}"</div>
+            <div class="why">${ins.why_optional}</div>
+          </div>
+          <button class="small secondary add-btn">+ Add to arc</button>`;
+        div.addEventListener('dragstart', () => { window.__dragSeg = { video_id: ins.video_id, title: ins.video_title, url: ins.url, start_seconds: ins.start_seconds, text: ins.quote }; window.__dragReason = ins.why_optional; });
+        div.querySelector('.add-btn').addEventListener('click', () => addSegmentToScenes(
+          { video_id: ins.video_id, title: ins.video_title, url: ins.url, start_seconds: ins.start_seconds, text: ins.quote },
+          ins.why_optional
+        ));
+        list.appendChild(div);
+      });
+    }
+
+    let fullPool = [];
+    function renderPool(filterText) {
+      const section = document.getElementById('pool-section');
+      const list = document.getElementById('pool-list');
+      if (fullPool.length === 0) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      const q = (filterText || '').toLowerCase();
+      const filtered = q ? fullPool.filter(s => (s.text || '').toLowerCase().includes(q) || (s.title || '').toLowerCase().includes(q)) : fullPool;
+      list.innerHTML = '';
+      filtered.slice(0, 100).forEach((seg) => {
+        const div = document.createElement('div');
+        div.className = 'pool-card';
+        div.draggable = true;
+        div.innerHTML = `
+          <div class="body">
+            <span>${seg.title}</span> ${tsLink(seg.url, seg.start_seconds)}
+            <div class="quote">"${(seg.text || '').slice(0, 220)}"</div>
+          </div>
+          <button class="small secondary add-btn">+ Add</button>`;
+        div.addEventListener('dragstart', (e) => { div.classList.add('dragging'); window.__dragSeg = seg; window.__dragReason = 'Manually pulled from the full result pool.'; });
+        div.addEventListener('dragend', () => div.classList.remove('dragging'));
+        div.querySelector('.add-btn').addEventListener('click', () => addSegmentToScenes(seg, 'Manually pulled from the full result pool.'));
+        list.appendChild(div);
+      });
+      if (filtered.length > 100) {
+        const more = document.createElement('div');
+        more.className = 'dim';
+        more.textContent = `+ ${filtered.length - 100} more -- refine your search to see them.`;
+        list.appendChild(more);
+      }
+    }
+
+    document.getElementById('pool-search').addEventListener('input', (e) => renderPool(e.target.value));
 
     function showArc(data) {
       answerEl.textContent = '';
@@ -166,6 +358,9 @@
         summaryEl.textContent = '';
         noteEl.textContent = data.note || 'Not enough real material found for a coherent arc.';
         listEl.innerHTML = '';
+        renderInserts(data.optional_inserts);
+        fullPool = data.pool || [];
+        renderPool('');
         return;
       }
       storyboardEl.style.display = 'block';
@@ -173,6 +368,10 @@
       noteEl.textContent = '';
       currentScenes = data.scenes.map(s => ({ ...s, _excluded: false }));
       renderScenes();
+      renderInserts(data.optional_inserts);
+      fullPool = data.pool || [];
+      document.getElementById('pool-search').value = '';
+      renderPool('');
     }
 
     f.addEventListener('submit', async (e) => {
@@ -180,8 +379,13 @@
       const q = document.getElementById('q').value.trim();
       if (!q) return;
       goBtn.disabled = true;
-      logEl.style.display = 'block';
       logEl.innerHTML = '';
+      logEl.style.display = 'block';
+      logEl.classList.add('running');
+      logEl.classList.remove('collapsed');
+      logHeader.style.display = 'none';
+      stepCount = 0;
+      runStart = Date.now();
       answerEl.textContent = '';
       storyboardEl.style.display = 'none';
 
@@ -206,10 +410,10 @@
             if (event.type === 'status') {
               addLogLine(event.text);
             } else if (event.type === 'arc') {
-              finishLog();
+              collapseLog();
               showArc(event);
             } else if (event.type === 'final') {
-              finishLog();
+              collapseLog();
               answerEl.textContent = event.answer || '(no answer)';
               if (event.sql) {
                 const sqlEl = document.createElement('div');
